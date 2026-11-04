@@ -94,7 +94,11 @@ $("login-form").addEventListener("submit", async (e) => {
 
 // ── Views ─────────────────────────────────────────────────────────────────────
 const views = { home: $("view-home"), study: $("view-study"), browse: $("view-browse") };
-function showView(name) {
+function showView(name, opts = {}) {
+  // Hooks for the topic page and the review picker (Task 5). Until those views exist,
+  // fall back to the browse list and the study session so nothing is unreachable.
+  if (name === "topic" && !views.topic) return void loadBrowse(opts.name || "");
+  if (name === "review" && !views.review) return void loadStudy();
   stopSpeaking();
   quiz.stop();
   Object.values(views).forEach((v) => v.classList.add("hidden"));
@@ -126,38 +130,10 @@ let sections = [];
 const isDifficult = (w) =>
   w.ease_factor < 2.1 || w.reverse_ease_factor < 2.1 || w.lapses >= 2 || w.reverse_lapses >= 2;
 
-// ── Home ──────────────────────────────────────────────────────────────────────
-function renderDue(count) {
-  const hero = $("hero-count");
-  hero.classList.toggle("is-text", count === 0);
-  if (count === null) {
-    hero.textContent = "–";
-    $("hero-sub").textContent = "до повторення";
-  } else if (count === 0) {
-    hero.textContent = "Усе повторено";
-    $("hero-sub").textContent = "На сьогодні слів немає";
-  } else {
-    hero.textContent = String(count);
-    $("hero-sub").textContent = "до повторення";
-  }
-}
-
-async function refreshDueCount() {
-  renderDue(null);
-  try {
-    const p = new URLSearchParams({ direction });
-    if (section) p.set("section", section);
-    const res = await apiFetch(`/vocabulary/due?${p}`);
-    if (res.ok) renderDue((await res.json()).length);
-  } catch {
-    // offline — keep placeholder
-  }
-}
-
 function fillSectionSelect(select, withAll = true) {
   const current = select.value;
   select.replaceChildren();
-  if (withAll) select.append(new Option("Усі розділи", ""));
+  if (withAll) select.append(new Option("Усі теми", ""));
   for (const s of sections) select.append(new Option(`${s.name} (${s.words})`, s.name));
   select.value = sections.some((s) => s.name === current) ? current : "";
 }
@@ -168,38 +144,234 @@ async function loadSections() {
     if (!res.ok) return;
     sections = await res.json();
     if (section && !sections.some((s) => s.name === section)) section = "";
-    fillSectionSelect($("section-select"));
-    $("section-select").value = section;
     $("section-options").replaceChildren(...sections.map((s) => new Option(s.name)));
   } catch {
     // offline — keep what we have
   }
 }
 
-async function loadStats() {
+async function loadHome() {
+  showView("home");
+  await loadSections();
+  renderTiles();
+}
+
+// ── Home: add a word, topic tiles ──────────────────────────────────────────────
+const FALLBACK_TOPIC = "Без теми";
+
+function pluralWords(n) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return `${n} слово`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} слова`;
+  return `${n} слів`;
+}
+
+function renderTiles() {
+  const grid = $("tiles");
+  const make = (name, count, topic) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tile";
+    const n = document.createElement("span");
+    n.className = "tile-name";
+    n.textContent = name;
+    const c = document.createElement("span");
+    c.className = "tile-count";
+    c.textContent = pluralWords(count);
+    b.append(n, c);
+    b.addEventListener("click", () => showView("topic", { name: topic }));
+    return b;
+  };
+  const total = sections.reduce((sum, s) => sum + s.words, 0);
+  grid.replaceChildren(
+    ...sections.map((s) => make(s.name, s.words, s.name)),
+    make("Усі слова", total, ""),
+  );
+}
+
+// state of the result card: { status, input, word, saved }
+let quickState = null;
+let quickWord = null;
+let quickBusy = false;
+const quickInput = $("quick-input");
+const quickResult = $("quick-result");
+
+function resetQuick() {
+  quickState = null;
+  quickWord = null;
+  quickInput.value = "";
+  renderQuickResult();
+}
+
+function mk(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+// "дієслово: бігти, керувати" lines -> a pos label and meanings, the main one in bold
+function renderParts(word) {
+  const box = mk("div", "parts");
+  const main = (word.main_translation || "").trim().toLowerCase();
+  for (const line of (word.translation || "").split("\n").filter(Boolean)) {
+    const i = line.indexOf(":");
+    const row = mk("div", "part");
+    const meanings = mk("span", "part-meanings");
+    const items = (i > 0 ? line.slice(i + 1) : line).split(",").map((m) => m.trim()).filter(Boolean);
+    items.forEach((m, k) => {
+      if (k) meanings.append(", ");
+      meanings.append(m.toLowerCase() === main ? mk("strong", "", m) : m);
+    });
+    if (i > 0) row.append(mk("span", "part-pos", line.slice(0, i).trim()));
+    else row.classList.add("part-bare");
+    row.append(meanings);
+    box.append(row);
+  }
+  return box;
+}
+
+function renderQuickResult() {
+  quickResult.replaceChildren();
+  quickResult.classList.toggle("hidden", !quickState);
+  if (!quickState) return;
+  const { status, input, word } = quickState;
+
+  if (status === "error") {
+    quickResult.append(
+      mk("p", "error-msg", navigator.onLine ? "Не вдалося додати слово." : "Немає з'єднання."),
+    );
+    return;
+  }
+  if (status === "not_english") {
+    quickResult.append(mk("p", "result-note", "Це не схоже на англійське слово."));
+    return;
+  }
+  if (status === "unavailable") {
+    quickResult.append(
+      mk("p", "result-note", "Переклад зараз недоступний. Введіть переклад вручну."),
+    );
+    const form = mk("form", "manual-form");
+    form.noValidate = true;
+    const inp = mk("input", "manual-input");
+    inp.type = "text";
+    inp.id = "manual-translation";
+    inp.placeholder = "Переклад";
+    inp.setAttribute("aria-label", "Переклад");
+    inp.autocomplete = "off";
+    const btn = mk("button", "btn btn-primary quick-add", "Зберегти");
+    btn.type = "submit";
+    form.append(inp, btn);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveManual(inp, btn);
+    });
+    quickResult.append(form);
+    if (quickState.error) quickResult.append(mk("p", "error-msg", quickState.error));
+    return;
+  }
+
+  // created / exists
+  quickResult.append(mk("h3", "result-word", word.word));
+  if (input && input.trim().toLowerCase() !== word.word.toLowerCase()) {
+    quickResult.append(mk("p", "result-note", `Ви ввели «${input.trim()}» → збережено «${word.word}»`));
+  }
+  quickResult.append(renderParts(word));
+  const meta = mk("div", "result-meta");
+  if (word.section) meta.append(mk("span", "chip", word.section));
+  meta.append(
+    mk("span", "result-status", status === "exists" ? "Уже є у словнику" : "Збережено"),
+  );
+  quickResult.append(meta);
+  const actions = mk("div", "result-actions");
+  const edit = mk("button", "btn-edit", "Змінити");
+  edit.type = "button";
+  edit.addEventListener("click", () => openEditSheet(quickWord));
+  const del = mk("button", "btn-delete", "Видалити");
+  del.type = "button";
+  del.addEventListener("click", deleteQuickWord);
+  actions.append(edit, del);
+  quickResult.append(actions);
+  if (quickState.error) quickResult.append(mk("p", "error-msg", quickState.error));
+}
+
+function setQuickBusy(busy) {
+  quickBusy = busy;
+  const b = $("quick-add");
+  b.disabled = busy;
+  b.textContent = busy ? "Додаю…" : "Додати";
+  b.setAttribute("aria-busy", String(busy));
+}
+
+async function refreshTiles() {
+  await loadSections();
+  renderTiles();
+}
+
+$("quick-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = quickInput.value.trim();
+  if (quickBusy || !text) return;
+  setQuickBusy(true);
   try {
-    const res = await apiFetch("/stats");
-    if (!res.ok) return;
-    const s = await res.json();
-    $("m-total").textContent = s.total;
-    $("m-due").textContent = direction === "reverse" ? s.due_today_reverse : s.due_today;
-    $("m-learned").textContent = s.learned;
-    $("m-difficult").textContent = s.difficult;
+    const res = await apiFetch("/vocabulary/quick", { method: "POST", body: JSON.stringify({ text }) });
+    if (!res.ok) throw new Error();
+    const r = await res.json();
+    quickState = { status: r.status, input: r.input || text, word: r.word };
+    quickWord = r.word;
+    if (r.status === "created" || r.status === "exists") quickInput.value = "";
+    renderQuickResult();
+    if (r.status === "created") refreshTiles();
   } catch {
-    // offline
+    quickState = { status: "error", input: text, word: null };
+    quickWord = null;
+    renderQuickResult();
+  } finally {
+    setQuickBusy(false);
+  }
+});
+
+async function saveManual(inp, btn) {
+  const translation = inp.value.trim();
+  if (!translation || quickBusy) return;
+  quickBusy = true;
+  btn.disabled = true;
+  try {
+    const res = await apiFetch("/vocabulary", {
+      method: "POST",
+      body: JSON.stringify({ word: quickState.input.trim(), translation, section: FALLBACK_TOPIC }),
+    });
+    if (res.status === 409) throw new Error("Таке слово вже є.");
+    if (!res.ok) throw new Error("Не вдалося зберегти.");
+    const word = await res.json();
+    quickState = { status: "created", input: word.word, word };
+    quickWord = word;
+    quickInput.value = "";
+    renderQuickResult();
+    refreshTiles();
+  } catch (err) {
+    quickState.error = err.message || "Не вдалося зберегти.";
+    renderQuickResult();
+  } finally {
+    quickBusy = false;
   }
 }
 
-async function loadHome() {
-  showView("home");
-  syncAudioSettings();
-  await Promise.all([loadSections(), loadStats(), refreshDueCount()]);
+async function deleteQuickWord() {
+  if (!quickWord) return;
+  try {
+    const res = await apiFetch(`/vocabulary/${quickWord.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error();
+  } catch {
+    quickState.error = "Не вдалося видалити.";
+    return renderQuickResult();
+  }
+  quickState = null;
+  quickWord = null;
+  renderQuickResult();
+  refreshTiles();
 }
-
-$("section-select").addEventListener("change", (e) => {
-  section = e.target.value;
-  refreshDueCount();
-});
 
 // Header menu
 const menuBtn = $("btn-menu");
@@ -221,55 +393,11 @@ $("btn-logout").addEventListener("click", () => {
   clearToken();
   section = "";
   sections = [];
+  resetQuick();
   showLogin();
 });
 
-// Segmented controls
-function bindSegmented(el, attr, get, set) {
-  const sync = () =>
-    el.querySelectorAll(".seg-btn").forEach((b) => {
-      const on = b.dataset[attr] === get();
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", String(on));
-    });
-  el.addEventListener("click", (e) => {
-    const btn = e.target.closest(".seg-btn");
-    if (!btn) return;
-    set(btn.dataset[attr]);
-    sync();
-  });
-  sync();
-}
-bindSegmented($("activity-toggle"), "activity", () => activity, (v) => {
-  activity = v;
-  localStorage.setItem("lexi_activity", v);
-  $("btn-study-text").textContent = v === "quiz" ? "Почати квіз" : "Почати";
-  $("activity-desc").classList.toggle("hidden", v !== "quiz");
-});
-bindSegmented($("dir-toggle"), "dir", () => direction, (v) => {
-  direction = v;
-  localStorage.setItem("lexi_dir", v);
-  refreshDueCount();
-  loadStats();
-});
-$("btn-study-text").textContent = activity === "quiz" ? "Почати квіз" : "Почати";
-$("activity-desc").classList.toggle("hidden", activity !== "quiz");
-
-// Audio settings
-function syncAudioSettings() {
-  $("autoplay-toggle").setAttribute("aria-checked", String(getSettings().autoplay));
-  const problem = voiceProblem();
-  $("voice-status").textContent = problem || "";
-  $("voice-status").classList.toggle("hidden", !problem);
-}
-$("autoplay-toggle").addEventListener("click", () => {
-  setSetting("autoplay", !getSettings().autoplay);
-  syncAudioSettings();
-});
-
-$("btn-study").addEventListener("click", loadStudy);
-$("btn-browse").addEventListener("click", loadBrowse);
-$("btn-add").addEventListener("click", () => openEditSheet(null));
+$("btn-review").addEventListener("click", () => showView("review"));
 $("fab-add").addEventListener("click", () => openEditSheet(null));
 for (const id of ["study-back", "browse-back", "study-done-btn", "study-home-btn"]) {
   $(id).addEventListener("click", loadHome);
@@ -532,7 +660,8 @@ browseList.addEventListener("click", (e) => {
 
 let browseWords = [];
 
-async function loadBrowse() {
+async function loadBrowse(name = "") {
+  section = name;
   showView("browse");
   await loadSections();
   fillSectionSelect($("browse-section"));
@@ -638,6 +767,7 @@ const editBackdrop = $("edit-sheet-backdrop");
 const FIELDS = {
   word: "edit-word",
   translation: "edit-translation",
+  main_translation: "edit-main-translation",
   transcription: "edit-transcription",
   part_of_speech: "edit-pos",
   example: "edit-example",
@@ -690,7 +820,13 @@ async function refreshAfterEdit(updated) {
     fillSectionSelect($("browse-section"));
     await renderBrowse();
   } else if (!views.home.classList.contains("hidden")) {
-    loadHome();
+    if (quickWord && editing && editing.id === quickWord.id) {
+      quickWord = updated ? { ...quickWord, ...updated } : null;
+      quickState = quickWord ? { ...quickState, word: quickWord } : null;
+      renderQuickResult();
+    }
+    await loadSections();
+    renderTiles();
   }
 }
 
@@ -748,7 +884,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-syncAudioSettings();
 if (getToken()) {
   $("view-login").classList.add("hidden");
   loadHome();

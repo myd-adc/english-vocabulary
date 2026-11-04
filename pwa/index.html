@@ -35,6 +35,7 @@
   <div id="view-home" class="view hidden">
     <header class="app-header">
       <h1 class="app-title">LexiVocab</h1>
+      <button class="btn-review" id="btn-review" type="button">Повторити</button>
       <div class="menu-wrap">
         <button class="btn-icon" id="btn-menu" aria-label="Меню" aria-haspopup="menu"
                 aria-expanded="false" aria-controls="app-menu"><span data-icon="more"></span></button>
@@ -45,61 +46,19 @@
     </header>
 
     <main class="home-main">
-      <section class="hero" aria-labelledby="hero-count">
-        <p class="hero-count" id="hero-count" aria-live="polite">–</p>
-        <p class="hero-sub" id="hero-sub">до повторення</p>
-        <button class="btn btn-primary btn-cta" id="btn-study"><span id="btn-study-text">Почати</span></button>
+      <form class="quick-form" id="quick-form" novalidate>
+        <input type="text" id="quick-input" class="quick-input" autocapitalize="none" autocorrect="off"
+               spellcheck="false" autocomplete="off" enterkeyhint="done"
+               placeholder="Англійське слово" aria-label="Англійське слово" />
+        <button type="submit" class="btn btn-primary quick-add" id="quick-add">Додати</button>
+      </form>
+
+      <section id="quick-result" class="result hidden" aria-live="polite"></section>
+
+      <section aria-labelledby="topics-title">
+        <h2 class="section-title" id="topics-title">Теми</h2>
+        <div class="tiles" id="tiles"></div>
       </section>
-
-      <dl class="metrics" aria-label="Прогрес">
-        <div class="metric"><dt class="metric-label">слів</dt><dd class="metric-number" id="m-total">–</dd></div>
-        <div class="metric"><dt class="metric-label">на сьогодні</dt><dd class="metric-number" id="m-due">–</dd></div>
-        <div class="metric"><dt class="metric-label">вивчено</dt><dd class="metric-number" id="m-learned">–</dd></div>
-        <div class="metric"><dt class="metric-label">складних</dt><dd class="metric-number" id="m-difficult">–</dd></div>
-      </dl>
-
-      <section class="settings" aria-labelledby="settings-title">
-        <h3 class="settings-title" id="settings-title">Налаштування</h3>
-
-        <div class="setting-row">
-          <label class="setting-label" for="section-select">Розділ</label>
-          <select id="section-select" class="native-select"><option value="">Усі розділи</option></select>
-        </div>
-
-        <div class="setting-row">
-          <span class="setting-label" id="activity-label">Вправа</span>
-          <div class="segmented" id="activity-toggle" role="group" aria-labelledby="activity-label">
-            <button class="seg-btn active" data-activity="cards" aria-pressed="true">Картки</button>
-            <button class="seg-btn" data-activity="quiz" aria-pressed="false">Квіз</button>
-          </div>
-          <p class="setting-desc hidden" id="activity-desc">Тест із варіантами відповіді по всіх словах розділу. Розклад повторень не змінюється.</p>
-        </div>
-
-        <div class="setting-row">
-          <span class="setting-label" id="dir-label">Напрямок</span>
-          <div class="segmented" id="dir-toggle" role="group" aria-labelledby="dir-label">
-            <button class="seg-btn active" data-dir="forward" aria-pressed="true">EN – UA</button>
-            <button class="seg-btn" data-dir="reverse" aria-pressed="false">UA – EN</button>
-          </div>
-        </div>
-
-        <div class="setting-row setting-row-inline">
-          <div class="setting-text">
-            <span class="setting-label" id="autoplay-label">Автоозвучення</span>
-            <span class="setting-desc" id="autoplay-desc">Вимовляти слово й речення</span>
-            <span class="setting-desc voice-status hidden" id="voice-status"></span>
-          </div>
-          <button class="switch" id="autoplay-toggle" role="switch" aria-checked="true"
-                  aria-labelledby="autoplay-label" aria-describedby="autoplay-desc">
-            <span class="switch-knob" aria-hidden="true"></span>
-          </button>
-        </div>
-      </section>
-
-      <div class="home-actions">
-        <button class="row-btn" id="btn-browse"><span>Усі слова</span><span data-icon="chevron-right"></span></button>
-        <button class="row-btn" id="btn-add"><span>Додати слово</span><span data-icon="plus"></span></button>
-      </div>
     </main>
   </div>
 
@@ -176,7 +135,7 @@
       <div class="browse-tools">
         <input type="search" id="browse-search" class="login-input" placeholder="Пошук"
                autocomplete="off" autocapitalize="off" spellcheck="false" />
-        <select id="browse-section" class="native-select" aria-label="Розділ"></select>
+        <select id="browse-section" class="native-select" aria-label="Тема"></select>
         <select id="browse-filter" class="native-select" aria-label="Фільтр">
           <option value="">Усі</option>
           <option value="due">На сьогодні</option>
@@ -200,7 +159,9 @@
       <div class="edit-sheet-field"><label for="edit-word">Слово (англійською)</label>
         <input type="text" id="edit-word" autocomplete="off" autocapitalize="off" /></div>
       <div class="edit-sheet-field"><label for="edit-translation">Переклад</label>
-        <input type="text" id="edit-translation" autocomplete="off" /></div>
+        <textarea id="edit-translation" rows="2"></textarea></div>
+      <div class="edit-sheet-field"><label for="edit-main-translation">Головне значення</label>
+        <input type="text" id="edit-main-translation" autocomplete="off" /></div>
       <div class="edit-sheet-field"><label for="edit-transcription">Транскрипція (IPA)</label>
         <input type="text" id="edit-transcription" autocomplete="off" placeholder="/ˈæp.əl/" /></div>
       <div class="edit-sheet-field"><label for="edit-pos">Частина мови</label>
@@ -211,7 +172,7 @@
         <textarea id="edit-example-translation" rows="2"></textarea></div>
       <div class="edit-sheet-field"><label for="edit-notes">Нотатки</label>
         <textarea id="edit-notes" rows="2"></textarea></div>
-      <div class="edit-sheet-field"><label for="edit-section">Розділ</label>
+      <div class="edit-sheet-field"><label for="edit-section">Тема</label>
         <input type="text" id="edit-section" list="section-options" autocomplete="off" />
         <datalist id="section-options"></datalist></div>
       <p id="edit-error" class="edit-error hidden"></p>
