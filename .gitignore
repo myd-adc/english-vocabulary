@@ -12,3 +12,6 @@ venv/
 .vscode/
 node_modules/
 web/dist/
+
+# Claude Code local files
+.claude/
