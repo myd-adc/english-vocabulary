@@ -80,7 +80,7 @@ def test_sections_stats_difficult(client, headers):
     for _ in range(2):
         client.patch("/api/vocabulary/1/review", json={"quality": 0}, headers=headers)
     stats = client.get("/api/stats", headers=headers).json()
-    assert stats["total"] == 3 and stats["difficult"] == 1 and stats["sections"] == 1
+    assert stats["total"] == 3 and stats["difficult"] == 1 and stats["sections"] == 2  # S1 + Без теми
     assert stats["due_today"] == 2  # word 1 was pushed to tomorrow
     hard = client.get("/api/vocabulary?difficult=true", headers=headers).json()
     assert [w["word"] for w in hard["words"]] == ["a"]
@@ -171,3 +171,23 @@ def test_backfill_endpoint_caps_batch(client, headers, monkeypatch):
     assert r.json() == {"updated": 20, "remaining": 5}
     r = client.post("/api/topics/backfill", headers=headers)
     assert r.json() == {"updated": 5, "remaining": 0}
+
+
+def test_update_translation_clears_stale_main_translation(client, headers):
+    from app import vocab
+
+    wid = client.post("/api/vocabulary", json={"word": "run", "translation": "бігти", "main_translation": "бігти"},
+                      headers=headers).json()["id"]
+    assert vocab.update_word(wid, {"notes": "n"})["main_translation"] == "бігти"
+    assert vocab.update_word(wid, {"translation": "керувати"})["main_translation"] is None
+    row = vocab.update_word(wid, {"translation": "іти", "main_translation": "іти"})
+    assert row["main_translation"] == "іти"
+
+
+def test_topic_names_excludes_fallback(client, headers):
+    from app import vocab
+
+    client.post("/api/vocabulary", json={"word": "a", "translation": "a", "section": "Рух"}, headers=headers)
+    client.post("/api/vocabulary", json={"word": "b", "translation": "b", "section": "Без теми"}, headers=headers)
+    client.post("/api/vocabulary", json={"word": "c", "translation": "c"}, headers=headers)
+    assert vocab.topic_names() == ["Рух"]

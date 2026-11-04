@@ -222,6 +222,8 @@ def update_word(word_id: int, changes: dict) -> dict | None:
     if unknown:
         raise ValidationError(f"Unknown fields: {', '.join(sorted(unknown))}")
     values = {f: _clean(v) for f, v in changes.items()}
+    if "translation" in changes and "main_translation" not in changes:
+        values["main_translation"] = None  # the old highlight no longer matches the new text
     for f in _REQUIRED:
         if f in values and not values[f]:
             raise ValidationError(f"'{f}' cannot be empty")
@@ -258,7 +260,9 @@ def find_by_word(word: str) -> dict | None:
 def topic_names() -> list[str]:
     with connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT section FROM words WHERE section IS NOT NULL ORDER BY section"
+            "SELECT DISTINCT section FROM words WHERE section IS NOT NULL AND section <> %s "
+            "ORDER BY section",
+            [FALLBACK_TOPIC],
         ).fetchall()
     return [r["section"] for r in rows]
 
@@ -392,9 +396,9 @@ def get_stats() -> dict:
                       COUNT(*) FILTER (WHERE repetitions >= %s) AS learned,
                       COUNT(*) FILTER (WHERE ease_factor < %s OR reverse_ease_factor < %s
                                          OR lapses >= %s OR reverse_lapses >= %s) AS difficult,
-                      COUNT(DISTINCT section) AS sections
+                      COUNT(DISTINCT COALESCE(section, %s)) AS sections
                FROM words""",
             [t, t, LEARNED_REPETITIONS, EASE_DIFFICULT, EASE_DIFFICULT,
-             LAPSE_THRESHOLD, LAPSE_THRESHOLD],
+             LAPSE_THRESHOLD, LAPSE_THRESHOLD, FALLBACK_TOPIC],
         ).fetchone()
     return dict(row)
