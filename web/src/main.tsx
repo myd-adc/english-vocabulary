@@ -6,6 +6,9 @@ import { router } from "./router";
 import "./styles/tokens.css";
 import "./lib/speech"; // registers the iOS speech unlock on first tap
 
+// The old vanilla PWA kept its own cache; its service worker is replaced by the new one at /sw.js.
+if ("caches" in window) void caches.delete("lexivocab-v6");
+
 const queryClient = new QueryClient({
   defaultOptions: {
     // Offline requests should fail (and show the error) instead of waiting for the network.
