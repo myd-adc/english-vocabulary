@@ -1,52 +1,92 @@
-"""PWA authentication: password -> 30-day JWT (HS256), as in the original project."""
+"""Accounts: verify Supabase Auth access tokens and apply the invite-only allowlist.
 
-import hmac
-import time
-from datetime import UTC, datetime, timedelta
+The PWA signs people in with Supabase (email + password, Google) and sends the resulting
+access token as `Authorization: Bearer <jwt>`. This module never mints tokens for people.
+"""
+
+import threading
+from dataclasses import dataclass
 
 import jwt
 from fastapi import Header, HTTPException
+from jwt import PyJWKClient
 
-from app import config
+from app import config, vocab
 
-_ALGORITHM = "HS256"
-_EXPIRY_DAYS = 30
+_AUDIENCE = "authenticated"
+_ASYMMETRIC = ("ES256", "RS256")
 
-# Tiny in-memory brute-force guard for the login endpoint (single process).
-_FAIL_WINDOW = 300
-_FAIL_LIMIT = 10
-_failures: list[float] = []
+# JWKS keys are cached by PyJWKClient and refetched when a token names an unknown `kid`.
+_jwks_client: PyJWKClient | None = None
+_jwks_lock = threading.Lock()
 
-
-def check_password(candidate: str, expected: str) -> bool:
-    return hmac.compare_digest(candidate.encode(), expected.encode())
-
-
-def login_allowed() -> bool:
-    cutoff = time.time() - _FAIL_WINDOW
-    _failures[:] = [t for t in _failures if t > cutoff]
-    return len(_failures) < _FAIL_LIMIT
+# Users whose pre-account words were already claimed in this process (OWNER_EMAIL only).
+_claimed: set[str] = set()
 
 
-def record_failure() -> None:
-    _failures.append(time.time())
+@dataclass(frozen=True)
+class User:
+    id: str
+    email: str
 
 
-def create_token() -> str:
-    payload = {"sub": "pwa", "exp": datetime.now(UTC) + timedelta(days=_EXPIRY_DAYS)}
-    return jwt.encode(payload, config.JWT_SECRET, algorithm=_ALGORITHM)
+def _issuer() -> str:
+    return f"{config.SUPABASE_URL}/auth/v1"
 
 
-def verify_token(token: str) -> bool:
+def _jwks() -> PyJWKClient:
+    global _jwks_client
+    with _jwks_lock:
+        if _jwks_client is None:
+            _jwks_client = PyJWKClient(
+                f"{_issuer()}/.well-known/jwks.json", cache_keys=True, lifespan=3600, timeout=10
+            )
+        return _jwks_client
+
+
+def _decode(token: str) -> dict:
+    """Verify signature, expiry, audience and issuer; returns the claims or raises jwt.PyJWTError."""
+    alg = jwt.get_unverified_header(token).get("alg")
+    if alg == "HS256" and config.SUPABASE_JWT_SECRET:
+        key: object = config.SUPABASE_JWT_SECRET
+    elif alg in _ASYMMETRIC:
+        key = _jwks().get_signing_key_from_jwt(token).key
+    else:
+        raise jwt.InvalidAlgorithmError(f"Unsupported algorithm: {alg}")
+    return jwt.decode(
+        token,
+        key,
+        algorithms=[alg],
+        audience=_AUDIENCE,
+        issuer=_issuer(),
+        options={"require": ["exp", "sub", "aud", "iss"]},
+    )
+
+
+def user_from_token(token: str) -> User:
+    """Token -> allowed user. Raises 401 for a bad token, 403 `no_access` for an email off the list."""
     try:
-        jwt.decode(token, config.JWT_SECRET, algorithms=[_ALGORITHM], options={"require": ["exp"]})
-        return True
-    except jwt.PyJWTError:
-        return False
+        claims = _decode(token)
+    except jwt.PyJWTError as err:  # includes JWKS fetch failures
+        raise HTTPException(status_code=401, detail="Unauthorized") from err
+    email = str(claims.get("email") or "").strip().lower()
+    if not email or email not in config.ALLOWED_EMAILS:
+        raise HTTPException(status_code=403, detail="no_access")
+    user = User(id=str(claims["sub"]), email=email)
+    _claim_legacy_words(user)
+    return user
 
 
-def require_auth(authorization: str = Header("")) -> None:
-    """FastAPI dependency: demands 'Authorization: Bearer <jwt>'."""
-    if authorization.startswith("Bearer ") and verify_token(authorization[7:]):
+def _claim_legacy_words(user: User) -> None:
+    """The owner inherits the words saved before accounts existed (once per process)."""
+    if not config.OWNER_EMAIL or user.email != config.OWNER_EMAIL or user.id in _claimed:
         return
-    raise HTTPException(status_code=401, detail="Unauthorized")
+    vocab.claim_unowned(user.id)
+    _claimed.add(user.id)
+
+
+def require_auth(authorization: str = Header("")) -> User:
+    """FastAPI dependency: demands 'Authorization: Bearer <supabase jwt>' of an allowed person."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user_from_token(authorization[7:])

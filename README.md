@@ -1,13 +1,13 @@
 # LexiVocab
 
-Особистий **англо-український словник**: вводите слово — ШІ (за замовчуванням безкоштовний Google Gemini) сам перекладає його, виправляє форму й розкладає за темами. Повторення (інтервальне, SM-2) — другорядна функція поруч зі словником. Є PWA для iPhone та віддалений MCP-сервер, через який Claude може зберігати слова просто з розмови.
+Особистий **англо-український словник**: вводите слово — ШІ (за замовчуванням безкоштовний Google Gemini) сам перекладає його, виправляє форму й розкладає за темами. Повторення (інтервальне, SM-2) — другорядна функція поруч зі словником. Є PWA для iPhone та віддалений MCP-сервер, через який Claude може зберігати слова просто з розмови. Вхід за особистими акаунтами (Supabase Auth: email + пароль і Google), доступ лише за запрошенням; кожен має свій словник і свій конектор Claude.
 
 Один Python-процес на Render (безкоштовно) + Postgres на Supabase (безкоштовно):
 
 | Шлях | Що це |
 |---|---|
 | `/` | PWA на React (словник із темами, додавання слова, картки й квіз, озвучення en-US), збірка `web/dist` |
-| `/api/...` | REST API для PWA (JWT після входу за `PWA_PASSWORD`) |
+| `/api/...` | REST API для PWA (токен Supabase Auth у `Authorization: Bearer`) |
 | `/mcp` | MCP-сервер (streamable HTTP) + OAuth 2.1/PKCE/DCR; метадані в `/.well-known/...` |
 | `/health` | `{"status":"ok"}` (робить `SELECT 1`) — для пінгера |
 
@@ -33,18 +33,18 @@ git push -u origin main
 
 ### 3. Render (Blueprint)
 1. [render.com](https://render.com) → **New → Blueprint** → оберіть репозиторій. Render прочитає `render.yaml` (free web service).
-2. Введіть змінні (див. таблицю нижче): `DATABASE_URL`, `PWA_PASSWORD`, `MCP_SECRET` (`openssl rand -hex 32`), за бажанням `LLM_API_KEY` (безкоштовний ключ Gemini: [aistudio.google.com](https://aistudio.google.com) → **Get API key**). `ISSUER_URL` поки залиште будь-яким `https://...`.
+2. Введіть змінні (див. таблицю нижче): `DATABASE_URL`, `MCP_SECRET` (`openssl rand -hex 32`), `SUPABASE_URL`, `ALLOWED_EMAILS`, `OWNER_EMAIL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (налаштування акаунтів: [docs/superpowers/plans/2026-11-04-multi-user-auth-report.md](docs/superpowers/plans/2026-11-04-multi-user-auth-report.md)), за бажанням `LLM_API_KEY` (безкоштовний ключ Gemini: [aistudio.google.com](https://aistudio.google.com) → **Get API key**). `ISSUER_URL` поки залиште будь-яким `https://...`.
 3. Після першого деплою скопіюйте URL сервісу (`https://lexivocab-xxxx.onrender.com`), встановіть його в **Environment → `ISSUER_URL`** (без `/` в кінці) і натисніть **Manual Deploy → Deploy latest commit**.
 4. Перевірка: `curl https://<url>/health` → `{"status":"ok"}`.
 
 ### 4. Підключення до claude.ai
-**Settings → Connectors → Add custom connector** → URL: `ISSUER_URL` + `/mcp`, наприклад `https://lexivocab-xxxx.onrender.com/mcp`. Відкриється сторінка входу — введіть `MCP_SECRET`. Далі скажіть Claude: «збережи ці слова в LexiVocab».
+**Settings → Connectors → Add custom connector** → URL: `ISSUER_URL` + `/mcp`, наприклад `https://lexivocab-xxxx.onrender.com/mcp`. Відкриється сторінка LexiVocab: увійдіть у свій акаунт і натисніть «Дозволити» — слова потраплять у ваш словник. Далі скажіть Claude: «збережи ці слова в LexiVocab».
 
 ### 5. Пінг, щоб сервіс не засинав
 Безкоштовний Render засинає через 15 хв без трафіку (холодний старт ~1 хв). На [cron-job.org](https://cron-job.org): новий cron, URL `https://<url>/health`, кожні **10 хвилин**. Один сервіс 24/7 вкладається в ~750 безкоштовних годин. `/health` торкається БД, тож заодно Supabase не «призупиняє» проєкт за неактивність.
 
 ### 6. PWA на iPhone
-Відкрийте `https://<url>/` у **Safari** → **Поділитися** → **На екран «Додому»** → **Додати**. Увійдіть паролем `PWA_PASSWORD`.
+Відкрийте `https://<url>/` у **Safari** → **Поділитися** → **На екран «Додому»** → **Додати**. Створіть акаунт або увійдіть (email вже має бути в `ALLOWED_EMAILS`).
 
 ## Як додається слово
 Головний екран — словник. Введіть англійське слово (у будь-якій формі, навіть з помилкою) і натисніть «Додати»:
@@ -60,18 +60,22 @@ git push -u origin main
 | Змінна | Обов'язкова | Опис |
 |---|---|---|
 | `DATABASE_URL` | так | Рядок Postgres (Supabase Session pooler, `?sslmode=require`) |
-| `PWA_PASSWORD` | так | Пароль входу в PWA |
-| `MCP_SECRET` | так | Пароль на сторінці OAuth при додаванні конектора **і** ключ підпису токенів MCP |
+| `MCP_SECRET` | так | Ключ підпису токенів MCP-конектора (довгий випадковий рядок; його ніхто не вводить) |
+| `SUPABASE_URL` | так | `https://<project>.supabase.co`: звідси беруться ключі перевірки токенів входу |
+| `ALLOWED_EMAILS` | так | Email-и через кому, яким дозволено користуватись (без урахування регістру); решта бачить «Немає доступу» |
+| `OWNER_EMAIL` | ні | Слова, збережені до появи акаунтів, перейдуть до цієї людини при першому вході |
+| `SUPABASE_JWT_SECRET` | ні | HS256-секрет для старих проєктів Supabase; нові проєкти підписують ключем ES256 і цього не потребують |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | так (збірка) | Публічні значення для вебзастосунку (читає Vite під час збірки; anon-ключ публічний за задумом) |
 | `ISSUER_URL` | так (для MCP) | Публічний **https** URL сервісу без `/` в кінці |
 | `LLM_API_KEY` | ні | Ключ для автоперекладу, нормалізації й тем (за замовчуванням Google Gemini, безкоштовний тариф ~15 запитів/хв). Без нього переклад вводиться вручну |
 | `LLM_BASE_URL` | ні | Будь-який OpenAI-сумісний API; за замовчуванням `https://generativelanguage.googleapis.com/v1beta/openai/` (Gemini). Groq, Mistral, OpenRouter, Anthropic теж підходять |
 | `LLM_MODEL` | ні | Модель, за замовчуванням `gemini-flash-lite-latest` |
 | `LLM_REASONING_EFFORT` | ні | Для моделей із міркуванням, напр. `low` для `openai/gpt-oss-120b`. Швидше й менше токенів |
 
-Безкоштовна й швидка альтернатива Gemini: [Groq](https://console.groq.com) з відкритою моделлю: `LLM_BASE_URL=https://api.groq.com/openai/v1`, `LLM_MODEL=openai/gpt-oss-120b`, `LLM_REASONING_EFFORT=low`.
-| `JWT_SECRET` | ні | Ключ JWT для PWA; за замовчуванням `MCP_SECRET` (Render генерує окремий) |
 | `PORT` | ні | Порт (Render виставляє сам; локально 8000) |
 | `APP_TIMEZONE` | ні | Часовий пояс для «на сьогодні», за замовчуванням `Europe/Kyiv` |
+
+Безкоштовна й швидка альтернатива Gemini: [Groq](https://console.groq.com) з відкритою моделлю: `LLM_BASE_URL=https://api.groq.com/openai/v1`, `LLM_MODEL=openai/gpt-oss-120b`, `LLM_REASONING_EFFORT=low`.
 
 ## MCP-інструменти
 `add_words` (до 50, без дублікатів без урахування регістру), `list_words` (фільтри: розділ, лише на сьогодні, лише складні; показує ease factor, lapses, повторення для обох напрямків), `update_word`, `delete_word`, `list_sections`, `get_stats` (усього / на сьогодні / вивчено / складні).
@@ -84,8 +88,8 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env   # заповніть DATABASE_URL (будь-який Postgres)
 uvicorn app.main:app --env-file .env --reload   # http://localhost:8000
-TEST_DATABASE_URL=postgresql://... python -m pytest       # тести чистять таблицю words у цій БД!
-BASE_URL=http://localhost:8000 MCP_SECRET=... python tools/smoke_test.py   # перевірка OAuth+MCP
+TEST_DATABASE_URL=postgresql://... python -m pytest       # тести чистять таблиці words і oauth_* у цій БД!
+BASE_URL=http://localhost:8000 python tools/smoke_test.py   # перевірка метаданих OAuth і захисту MCP
 ```
 
 Фронтенд (React + Vite + TypeScript, потрібен Node 20+):

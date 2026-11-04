@@ -2,7 +2,9 @@
 
 Authorization Code + PKCE, Dynamic Client Registration, refresh-token rotation and
 revocation. Access tokens are HS256 JWTs signed with MCP_SECRET; clients, codes and
-refresh tokens live in Postgres. The DB layer is synchronous, so each call runs in
+refresh tokens live in Postgres. Whose dictionary a connector may touch is decided at the
+authorize step: the person signs in to the PWA's /connect page (Supabase account, allowlist)
+and the issued code, refresh token and access token all carry their user id. The DB layer is synchronous, so each call runs in
 a worker thread to keep the event loop free.
 """
 
@@ -23,7 +25,6 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyUrl
 
 from app import oauth_store as store
-from app.oauth_templates import login_template
 
 ACCESS_TOKEN_EXPIRY = 3600
 REFRESH_TOKEN_EXPIRY = 30 * 24 * 3600
@@ -33,11 +34,19 @@ PENDING_EXPIRY = 600
 _run = asyncio.to_thread
 
 
+class UserAuthorizationCode(AuthorizationCode):
+    user_id: str
+
+
+class UserRefreshToken(RefreshToken):
+    user_id: str
+
+
 class VocabularyOAuthProvider:
     def __init__(self, secret: str, issuer_url: str):
         self.secret = secret
         self.issuer_url = issuer_url
-        # nonce -> (client, params, created_at); lives in memory, lost on restart (the
+        # request id -> (client, params, created_at); lives in memory, lost on restart (the
         # user just starts the connection again).
         self._pending_params: dict[str, tuple[OAuthClientInformationFull, AuthorizationParams, float]] = {}
 
@@ -66,18 +75,20 @@ class VocabularyOAuthProvider:
         now = time.time()
         for nonce in [n for n, (_, _, t) in self._pending_params.items() if now - t > PENDING_EXPIRY]:
             del self._pending_params[nonce]
-        nonce = secrets.token_hex(16)
-        self._pending_params[nonce] = (client, params, now)
-        return f"{self.issuer_url}/authorize/submit?auth_params={nonce}"
+        request_id = secrets.token_hex(16)
+        self._pending_params[request_id] = (client, params, now)
+        # The PWA's /connect page signs the person in and posts the request back to /api/connect.
+        return f"{self.issuer_url}/connect?request={request_id}"
 
-    def pop_pending(self, nonce: str) -> tuple[OAuthClientInformationFull, AuthorizationParams] | None:
-        entry = self._pending_params.pop(nonce, None)
+    def take_pending(self, request_id: str) -> tuple[OAuthClientInformationFull, AuthorizationParams] | None:
+        """Single use: returns and forgets a pending authorization (None if unknown or expired)."""
+        entry = self._pending_params.pop(request_id, None)
         if entry is None or time.time() - entry[2] > PENDING_EXPIRY:
             return None
         return entry[0], entry[1]
 
     async def complete_authorization(
-        self, client: OAuthClientInformationFull, params: AuthorizationParams
+        self, client: OAuthClientInformationFull, params: AuthorizationParams, user_id: str
     ) -> str:
         code = secrets.token_hex(32)
         await _run(
@@ -90,6 +101,7 @@ class VocabularyOAuthProvider:
             json.dumps(params.scopes or []),
             time.time() + AUTH_CODE_EXPIRY,
             params.resource,
+            user_id,
         )
         return construct_redirect_uri(str(params.redirect_uri), code=code, state=params.state)
 
@@ -97,14 +109,15 @@ class VocabularyOAuthProvider:
         self, client: OAuthClientInformationFull, authorization_code: str
     ) -> AuthorizationCode | None:
         row = await _run(store.get_auth_code, authorization_code)
-        if row is None:
+        if row is None or not row.get("user_id"):
             return None
         if row["expires_at"] < time.time():
             await _run(store.delete_auth_code, authorization_code)
             return None
         if row["client_id"] != client.client_id:
             return None
-        return AuthorizationCode(
+        return UserAuthorizationCode(
+            user_id=row["user_id"],
             code=row["code"],
             scopes=json.loads(row["scopes_json"]),
             expires_at=row["expires_at"],
@@ -117,11 +130,12 @@ class VocabularyOAuthProvider:
 
     # ── Tokens ────────────────────────────────────────────────────────────────
 
-    async def _issue(self, client_id: str, scopes: list[str]) -> OAuthToken:
+    async def _issue(self, client_id: str, scopes: list[str], user_id: str) -> OAuthToken:
         now = int(time.time())
         access_token = jwt.encode(
             {
-                "sub": client_id,
+                "sub": user_id,  # the person whose dictionary this connector uses
+                "cid": client_id,
                 "jti": secrets.token_hex(16),
                 "scopes": scopes,
                 "iat": now,
@@ -133,7 +147,7 @@ class VocabularyOAuthProvider:
         )
         refresh = secrets.token_hex(32)
         await _run(
-            store.save_refresh_token, refresh, client_id, json.dumps(scopes), now + REFRESH_TOKEN_EXPIRY
+            store.save_refresh_token, refresh, client_id, json.dumps(scopes), now + REFRESH_TOKEN_EXPIRY, user_id
         )
         return OAuthToken(
             access_token=access_token,
@@ -147,20 +161,22 @@ class VocabularyOAuthProvider:
         self, client: OAuthClientInformationFull, authorization_code: AuthorizationCode
     ) -> OAuthToken:
         await _run(store.delete_auth_code, authorization_code.code)  # single use
-        return await self._issue(client.client_id, authorization_code.scopes)
+        assert isinstance(authorization_code, UserAuthorizationCode)
+        return await self._issue(client.client_id, authorization_code.scopes, authorization_code.user_id)
 
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
     ) -> RefreshToken | None:
         row = await _run(store.get_refresh_token, refresh_token)
-        if row is None:
+        if row is None or not row.get("user_id"):  # issued before accounts: reconnect once
             return None
         if row["expires_at"] is not None and row["expires_at"] < time.time():
             await _run(store.delete_refresh_token, refresh_token)
             return None
         if row["client_id"] != client.client_id:
             return None
-        return RefreshToken(
+        return UserRefreshToken(
+            user_id=row["user_id"],
             token=row["token"],
             client_id=row["client_id"],
             scopes=json.loads(row["scopes_json"]),
@@ -171,7 +187,10 @@ class VocabularyOAuthProvider:
         self, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str]
     ) -> OAuthToken:
         await _run(store.delete_refresh_token, refresh_token.token)  # rotation
-        return await self._issue(client.client_id, scopes if scopes else refresh_token.scopes)
+        assert isinstance(refresh_token, UserRefreshToken)
+        return await self._issue(
+            client.client_id, scopes if scopes else refresh_token.scopes, refresh_token.user_id
+        )
 
     async def load_access_token(self, token: str) -> AccessToken | None:
         try:
@@ -179,7 +198,7 @@ class VocabularyOAuthProvider:
                 token,
                 self.secret,
                 algorithms=["HS256"],
-                options={"require": ["sub", "jti", "exp"]},
+                options={"require": ["sub", "cid", "jti", "exp"]},  # no `cid`: pre-accounts token
             )
         except jwt.PyJWTError:
             return None
@@ -187,9 +206,10 @@ class VocabularyOAuthProvider:
             return None
         return AccessToken(
             token=token,
-            client_id=payload["sub"],
+            client_id=payload["cid"],
             scopes=payload.get("scopes", []),
             expires_at=int(payload["exp"]),
+            subject=payload["sub"],
         )
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
@@ -203,8 +223,3 @@ class VocabularyOAuthProvider:
             await _run(store.save_revoked_token, payload["jti"])
         elif isinstance(token, RefreshToken):
             await _run(store.delete_refresh_token, token.token)
-
-    # ── Login page ────────────────────────────────────────────────────────────
-
-    def render_login_page(self, nonce: str, error: str | None = None) -> str:
-        return login_template(nonce, error)

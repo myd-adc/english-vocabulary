@@ -75,7 +75,6 @@ CREATE TABLE IF NOT EXISTS words (
     reverse_lapses      INTEGER NOT NULL DEFAULT 0,
     reverse_next_review DATE NOT NULL DEFAULT CURRENT_DATE
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uix_words_word_lower ON words (lower(word));
 CREATE INDEX IF NOT EXISTS ix_words_section ON words (section);
 
 CREATE TABLE IF NOT EXISTS oauth_clients (
@@ -114,3 +113,12 @@ def init_db() -> None:
         conn.execute("SELECT pg_advisory_xact_lock(727274)")
         conn.execute(SCHEMA)
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS main_translation TEXT")
+        # Accounts: every word belongs to a Supabase user (NULL = saved before accounts existed,
+        # claimed by OWNER_EMAIL on their first request). Uniqueness is per person now.
+        conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS user_id UUID")
+        conn.execute("DROP INDEX IF EXISTS uix_words_word_lower")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uix_words_user_word_lower ON words (user_id, lower(word))")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_words_user_section ON words (user_id, section)")
+        # MCP connector: authorizations and refresh tokens remember whose account they belong to.
+        conn.execute("ALTER TABLE oauth_auth_codes ADD COLUMN IF NOT EXISTS user_id TEXT")
+        conn.execute("ALTER TABLE oauth_refresh_tokens ADD COLUMN IF NOT EXISTS user_id TEXT")

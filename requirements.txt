@@ -4,7 +4,7 @@ fastapi>=0.115,<1
 uvicorn>=0.30,<1
 psycopg[binary]>=3.2,<4
 psycopg-pool>=3.2,<4
-PyJWT>=2.8,<3
+PyJWT[crypto]>=2.8,<3   # [crypto]: ES256 Supabase tokens
 python-multipart>=0.0.9
 tzdata
 openai>=1.60,<3

@@ -11,16 +11,22 @@ services:
     envVars:
       - key: DATABASE_URL      # Supabase Session pooler string (see README)
         sync: false
-      - key: PWA_PASSWORD
+      - key: MCP_SECRET        # long random string: signs the Claude connector's access tokens
         sync: false
-      - key: MCP_SECRET
+      - key: SUPABASE_URL      # https://<project>.supabase.co
+        sync: false
+      - key: ALLOWED_EMAILS    # comma-separated emails that may sign in (invite-only)
+        sync: false
+      - key: OWNER_EMAIL       # inherits the words saved before accounts existed
+        sync: false
+      - key: VITE_SUPABASE_URL # build time: the web app's Supabase project URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY  # build time: public anon / publishable key
         sync: false
       - key: ISSUER_URL        # https://<service>.onrender.com (set after the first deploy)
         sync: false
       - key: LLM_API_KEY       # optional Gemini key (aistudio.google.com); without it translations are entered by hand
         sync: false
-      - key: JWT_SECRET
-        generateValue: true
       - key: PYTHON_VERSION
         value: 3.13.1
       - key: NODE_VERSION      # used by the build step (npm ci + vite build)

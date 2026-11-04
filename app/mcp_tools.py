@@ -6,9 +6,11 @@ from typing import Required, TypedDict
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.fastmcp import FastMCP
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import JSONResponse
 
-from app import auth, config, db, translator, vocab
+from mcp.server.auth.middleware.auth_context import get_access_token
+
+from app import config, db, translator, vocab
 from app.oauth_provider import VocabularyOAuthProvider
 
 
@@ -43,6 +45,18 @@ mcp = FastMCP(
 )
 
 
+class NotSignedIn(RuntimeError):
+    """A tool ran without an authenticated account (cannot happen behind the bearer middleware)."""
+
+
+def _current_user() -> str:
+    """Id of the person whose access token made this request; every tool is scoped to it."""
+    token = get_access_token()
+    if token is None or not token.subject:
+        raise NotSignedIn("Not signed in")
+    return token.subject
+
+
 def _fmt(w: dict) -> str:
     extra = ", ".join(
         x for x in (w.get("transcription"), w.get("part_of_speech")) if x
@@ -72,6 +86,7 @@ def _fmt(w: dict) -> str:
     ),
 )
 async def add_words(words: list[WordInput], section_name: str | None = None) -> str:
+    uid = _current_user()
     def run() -> str:
         auto = [w for w in words if not (w.get("translation") or "").strip()]
         manual = [w for w in words if (w.get("translation") or "").strip()]
@@ -88,10 +103,10 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
         for w in manual:
             topic = w.get("section") or section_name
             if (not topic and not claude_down and (w.get("word") or "").strip()
-                    and not vocab.find_by_word(w["word"])):
+                    and not vocab.find_by_word(uid, w["word"])):
                 try:
                     topic = translator.suggest_topic(
-                        w["word"].strip(), w["translation"].strip(), vocab.topic_names()
+                        w["word"].strip(), w["translation"].strip(), vocab.topic_names(uid)
                     ).strip()
                 except translator.TranslationUnavailable:
                     topic = None
@@ -101,7 +116,7 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
             items.append({**w, "section": topic})
         saved, skipped = [], []
         if items:
-            result = vocab.add_words(items)
+            result = vocab.add_words(uid, items)
             saved += [r["word"] for r in result["inserted"]]
             skipped += result["skipped"]
 
@@ -110,7 +125,7 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
             if claude_down:
                 unavailable.append(w["word"].strip())
                 continue
-            res = vocab.quick_add(w["word"])
+            res = vocab.quick_add(uid, w["word"])
             if res["status"] == "created":
                 saved.append(res["word"]["word"])
             elif res["status"] == "exists":
@@ -159,16 +174,17 @@ async def list_words(
     limit: int = 50,
     offset: int = 0,
 ) -> str:
+    uid = _current_user()
     limit, offset = max(1, min(limit, 200)), max(0, offset)
 
     def run() -> dict:
         if not only_due:
-            return vocab.list_words(section=section_name, difficult=only_difficult,
+            return vocab.list_words(uid, section=section_name, difficult=only_difficult,
                                     search=search, limit=limit, offset=offset)
         # due in either direction: merge both lists
-        a = vocab.list_words(section=section_name, due_direction="forward",
+        a = vocab.list_words(uid, section=section_name, due_direction="forward",
                              difficult=only_difficult, search=search, limit=1000)["words"]
-        b = vocab.list_words(section=section_name, due_direction="reverse",
+        b = vocab.list_words(uid, section=section_name, due_direction="reverse",
                              difficult=only_difficult, search=search, limit=1000)["words"]
         merged = {w["id"]: w for w in [*a, *b]}
         words = sorted(merged.values(), key=lambda w: w["id"])
@@ -202,10 +218,12 @@ async def update_word(
     notes: str | None = None,
     section: str | None = None,
 ) -> str:
+    uid = _current_user()
+
     def run() -> str:
         target = id
         if target is None:
-            found = vocab.find_by_word(word) if word else None
+            found = vocab.find_by_word(uid, word) if word else None
             if not found:
                 return "Word not found (give a valid id or the exact English word)."
             target = found["id"]
@@ -219,7 +237,7 @@ async def update_word(
             if v is not None
         }
         try:
-            row = vocab.update_word(target, changes)
+            row = vocab.update_word(uid, target, changes)
         except vocab.DuplicateWord:
             return "Another word with that spelling already exists."
         except vocab.ValidationError as e:
@@ -234,14 +252,15 @@ async def update_word(
     description="Permanently delete one word and its review progress, by id (from list_words) or exact English 'word'.",
 )
 async def delete_word(id: int | None = None, word: str | None = None) -> str:
+    uid = _current_user()
     def run() -> str:
         target = id
         if target is None:
-            found = vocab.find_by_word(word) if word else None
+            found = vocab.find_by_word(uid, word) if word else None
             if not found:
                 return "Word not found (give a valid id or the exact English word)."
             target = found["id"]
-        return f"Deleted word {target}." if vocab.delete_word(target) else f"No word with id {target}."
+        return f"Deleted word {target}." if vocab.delete_word(uid, target) else f"No word with id {target}."
 
     return await asyncio.to_thread(run)
 
@@ -251,7 +270,8 @@ async def delete_word(id: int | None = None, word: str | None = None) -> str:
     description="List the user's topics (named groups of words) with word counts and how many words are due today. Words without a topic appear as 'Без теми'.",
 )
 async def list_sections() -> str:
-    sections = await asyncio.to_thread(vocab.list_sections)
+    uid = _current_user()
+    sections = await asyncio.to_thread(vocab.list_sections, uid)
     if not sections:
         return "No topics yet."
     return "\n".join(
@@ -268,7 +288,8 @@ async def list_sections() -> str:
     ),
 )
 async def get_stats() -> str:
-    s = await asyncio.to_thread(vocab.get_stats)
+    uid = _current_user()
+    s = await asyncio.to_thread(vocab.get_stats, uid)
     return (
         f"Total: {s['total']}; due today: {s['due_today']} (EN→UA), {s['due_today_reverse']} (UA→EN); "
         f"learned: {s['learned']}; difficult: {s['difficult']}; topics: {s['sections']}."
@@ -282,27 +303,3 @@ async def get_stats() -> str:
 async def health(_request: Request) -> JSONResponse:
     await asyncio.to_thread(db.ping)  # also keeps the Supabase free project from pausing
     return JSONResponse({"status": "ok"})
-
-
-@mcp.custom_route("/authorize/submit", methods=["GET", "POST"])
-async def authorize_submit(request: Request) -> HTMLResponse | RedirectResponse:
-    """Password-gated OAuth consent: the user proves they own the deploy with MCP_SECRET."""
-    if request.method == "GET":
-        return HTMLResponse(oauth_provider.render_login_page(request.query_params.get("auth_params", "")))
-
-    form = await request.form()
-    nonce = str(form.get("auth_params", ""))
-    if not auth.login_allowed():
-        return HTMLResponse(oauth_provider.render_login_page(nonce, "Забагато спроб. Зачекайте."), status_code=429)
-    if not auth.check_password(str(form.get("password", "")), config.MCP_SECRET):
-        auth.record_failure()
-        return HTMLResponse(oauth_provider.render_login_page(nonce, "Невірний пароль"), status_code=401)
-
-    pending = oauth_provider.pop_pending(nonce)
-    if pending is None:
-        return HTMLResponse(
-            oauth_provider.render_login_page(nonce, "Сесія завершилась. Почніть підключення знову."),
-            status_code=400,
-        )
-    redirect_url = await oauth_provider.complete_authorization(*pending)
-    return RedirectResponse(url=redirect_url, status_code=302)

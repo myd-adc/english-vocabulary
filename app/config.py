@@ -16,11 +16,21 @@ def _required(name: str) -> str:
 
 
 DATABASE_URL = _required("DATABASE_URL")
-PWA_PASSWORD = _required("PWA_PASSWORD")
-# OAuth login password for the MCP connector AND signing key for MCP access tokens.
+# Signing key for the MCP connector's own access tokens (not a password anyone types).
 MCP_SECRET = _required("MCP_SECRET")
-# Signs the PWA's login JWT. Falls back to MCP_SECRET so one secret is enough.
-JWT_SECRET = os.getenv("JWT_SECRET", "").strip() or MCP_SECRET
+
+# Accounts: Supabase Auth issues the sign-in tokens, this server only verifies them.
+# https://<project>.supabase.co, no trailing slash
+SUPABASE_URL = _required("SUPABASE_URL").rstrip("/")
+# Optional: HS256 secret for legacy Supabase projects (and the tests). New projects sign
+# with an asymmetric key published at {SUPABASE_URL}/auth/v1/.well-known/jwks.json.
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "").strip()
+# Invite-only: comma-separated emails that may use the app (case-insensitive).
+ALLOWED_EMAILS = frozenset(
+    e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()
+)
+# Words saved before accounts existed (user_id IS NULL) go to this person on their first request.
+OWNER_EMAIL = os.getenv("OWNER_EMAIL", "").strip().lower()
 # Public https URL of the service, no trailing slash, e.g. https://lexivocab.onrender.com
 ISSUER_URL = os.getenv("ISSUER_URL", "http://localhost:8000").strip().rstrip("/")
 PORT = int(os.getenv("PORT", "8000"))

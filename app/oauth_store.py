@@ -26,14 +26,14 @@ def get_client(client_id: str) -> dict | None:
 
 def save_auth_code(code: str, client_id: str, code_challenge: str, redirect_uri: str,
                    redirect_uri_provided_explicitly: bool, scopes_json: str,
-                   expires_at: float, resource: str | None) -> None:
+                   expires_at: float, resource: str | None, user_id: str) -> None:
     with connection() as conn:
         conn.execute(
             """INSERT INTO oauth_auth_codes (code, client_id, code_challenge, redirect_uri,
-                   redirect_uri_provided_explicitly, scopes_json, expires_at, resource)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                   redirect_uri_provided_explicitly, scopes_json, expires_at, resource, user_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             [code, client_id, code_challenge, redirect_uri, redirect_uri_provided_explicitly,
-             scopes_json, expires_at, resource],
+             scopes_json, expires_at, resource, user_id],
         )
         conn.execute("DELETE FROM oauth_auth_codes WHERE expires_at < %s", [time.time()])
 
@@ -48,14 +48,16 @@ def delete_auth_code(code: str) -> None:
         conn.execute("DELETE FROM oauth_auth_codes WHERE code = %s", [code])
 
 
-def save_refresh_token(token: str, client_id: str, scopes_json: str, expires_at: int | None) -> None:
+def save_refresh_token(token: str, client_id: str, scopes_json: str, expires_at: int | None,
+                       user_id: str | None) -> None:
     with connection() as conn:
         conn.execute(
-            """INSERT INTO oauth_refresh_tokens (token, client_id, scopes_json, expires_at)
-               VALUES (%s, %s, %s, %s)
+            """INSERT INTO oauth_refresh_tokens (token, client_id, scopes_json, expires_at, user_id)
+               VALUES (%s, %s, %s, %s, %s)
                ON CONFLICT (token) DO UPDATE SET client_id = EXCLUDED.client_id,
-                   scopes_json = EXCLUDED.scopes_json, expires_at = EXCLUDED.expires_at""",
-            [token, client_id, scopes_json, expires_at],
+                   scopes_json = EXCLUDED.scopes_json, expires_at = EXCLUDED.expires_at,
+                   user_id = EXCLUDED.user_id""",
+            [token, client_id, scopes_json, expires_at, user_id],
         )
         conn.execute(
             "DELETE FROM oauth_refresh_tokens WHERE expires_at IS NOT NULL AND expires_at < %s",

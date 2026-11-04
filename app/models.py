@@ -78,8 +78,17 @@ class ReviewRequest(BaseModel):
     quality: int = Field(ge=0, le=5, description="SM-2 quality: 0 Again, 3 Hard, 4 Good, 5 Easy")
 
 
-class LoginRequest(BaseModel):
-    password: str
+class MeResponse(BaseModel):
+    id: str
+    email: str
+
+
+class ConnectRequest(BaseModel):
+    request: str
+
+
+class ConnectResponse(BaseModel):
+    redirect_url: str
 
 
 class SectionResponse(BaseModel):

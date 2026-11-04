@@ -104,8 +104,9 @@ def test_mcp_requires_token(client):
 
 
 def test_password_page_is_gone(client):
-    assert client.get("/authorize/submit", params={"auth_params": "x"}).status_code == 404
-    assert client.post("/authorize/submit", data={"auth_params": "x", "password": "y"}).status_code == 404
+    from app.main import app
+
+    assert not [r for r in app.router.routes if getattr(r, "path", "").startswith("/authorize/submit")]
 
 
 def test_connect_requires_a_valid_allowed_account(client):

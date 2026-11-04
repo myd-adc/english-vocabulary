@@ -1,5 +1,8 @@
 """Vocabulary logic: CRUD, SM-2 scheduling, sections and stats.
 
+Every function takes the owner's `user_id` (Supabase user uuid, as a string) first and only ever
+sees that person's words.
+
 Shared in-process by the REST API (app/api.py) and the MCP tools (app/mcp_tools.py).
 All functions are synchronous (psycopg); async callers run them in a worker thread.
 """
@@ -106,6 +109,7 @@ def _serialize(row: dict) -> dict:
 
 
 def _filters(
+    user_id: str,
     section: str | None = None,
     search: str | None = None,
     created_after: str | None = None,
@@ -113,8 +117,8 @@ def _filters(
     difficult: bool = False,
     sections: list[str] | None = None,
 ) -> tuple[str, list]:
-    cond: list[str] = []
-    params: list = []
+    cond: list[str] = ["user_id = %s"]
+    params: list = [user_id]
     if sections is not None:
         # the fallback topic also covers words without a section
         cond.append("(section = ANY(%s) OR section IS NULL)" if FALLBACK_TOPIC in sections
@@ -138,20 +142,20 @@ def _filters(
             "(ease_factor < %s OR reverse_ease_factor < %s OR lapses >= %s OR reverse_lapses >= %s)"
         )
         params += [EASE_DIFFICULT, EASE_DIFFICULT, LAPSE_THRESHOLD, LAPSE_THRESHOLD]
-    return (" WHERE " + " AND ".join(cond)) if cond else "", params
+    return " WHERE " + " AND ".join(cond), params
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
 _INSERT = f"""
-    INSERT INTO words ({", ".join(CONTENT_FIELDS)}, next_review, reverse_next_review)
-    VALUES ({", ".join(["%s"] * len(CONTENT_FIELDS))}, %s, %s)
-    ON CONFLICT ((lower(word))) DO NOTHING
+    INSERT INTO words (user_id, {", ".join(CONTENT_FIELDS)}, next_review, reverse_next_review)
+    VALUES (%s, {", ".join(["%s"] * len(CONTENT_FIELDS))}, %s, %s)
+    ON CONFLICT (user_id, (lower(word))) DO NOTHING
     RETURNING *
 """
 
 
-def add_words(words: list[dict]) -> dict:
+def add_words(user_id: str, words: list[dict]) -> dict:
     """Insert up to 50 words. Duplicates (case-insensitive on `word`) are skipped.
 
     Returns {"inserted": [rows], "skipped": [word strings]}.
@@ -166,7 +170,7 @@ def add_words(words: list[dict]) -> dict:
     with connection() as conn:
         for item in items:
             row = conn.execute(
-                _INSERT, [*(item[f] for f in CONTENT_FIELDS), start, start]
+                _INSERT, [user_id, *(item[f] for f in CONTENT_FIELDS), start, start]
             ).fetchone()
             if row:
                 inserted.append(_serialize(row))
@@ -175,21 +179,24 @@ def add_words(words: list[dict]) -> dict:
     return {"inserted": inserted, "skipped": skipped}
 
 
-def add_word(data: dict) -> dict:
+def add_word(user_id: str, data: dict) -> dict:
     """Insert one word; raises DuplicateWord if it already exists."""
-    result = add_words([data])
+    result = add_words(user_id, [data])
     if not result["inserted"]:
         raise DuplicateWord(result["skipped"][0])
     return result["inserted"][0]
 
 
-def get_word(word_id: int) -> dict | None:
+def get_word(user_id: str, word_id: int) -> dict | None:
     with connection() as conn:
-        row = conn.execute("SELECT * FROM words WHERE id = %s", [word_id]).fetchone()
+        row = conn.execute(
+            "SELECT * FROM words WHERE id = %s AND user_id = %s", [word_id, user_id]
+        ).fetchone()
     return _serialize(row) if row else None
 
 
 def list_words(
+    user_id: str,
     section: str | None = None,
     due_direction: str | None = None,
     difficult: bool = False,
@@ -200,7 +207,7 @@ def list_words(
     sections: list[str] | None = None,
 ) -> dict:
     """Return {"total": n, "words": [...]}; due_direction='forward'|'reverse' keeps only due words."""
-    where, params = _filters(section, search, created_after, due_direction, difficult, sections)
+    where, params = _filters(user_id, section, search, created_after, due_direction, difficult, sections)
     order = f"{_prefix(due_direction)}next_review, id" if due_direction else "created_at DESC, id DESC"
     with connection() as conn:
         total = conn.execute(f"SELECT COUNT(*) AS n FROM words{where}", params).fetchone()["n"]
@@ -211,13 +218,13 @@ def list_words(
     return {"total": total, "words": [_serialize(r) for r in rows]}
 
 
-def get_due(direction: str = "forward", section: str | None = None,
+def get_due(user_id: str, direction: str = "forward", section: str | None = None,
             created_after: str | None = None, sections: list[str] | None = None) -> list[dict]:
-    return list_words(section=section, sections=sections, due_direction=direction,
+    return list_words(user_id, section=section, sections=sections, due_direction=direction,
                       created_after=created_after, limit=1000)["words"]
 
 
-def update_word(word_id: int, changes: dict) -> dict | None:
+def update_word(user_id: str, word_id: int, changes: dict) -> dict | None:
     """Partial update of content fields (only keys present in `changes`). SM-2 state is untouched.
 
     Returns the updated row, None if the id does not exist. Raises DuplicateWord on a name clash.
@@ -232,13 +239,13 @@ def update_word(word_id: int, changes: dict) -> dict | None:
         if f in values and not values[f]:
             raise ValidationError(f"'{f}' cannot be empty")
     if not values:
-        return get_word(word_id)
+        return get_word(user_id, word_id)
     assignments = ", ".join(f"{f} = %s" for f in values)
     try:
         with connection() as conn:
             row = conn.execute(
-                f"UPDATE words SET {assignments} WHERE id = %s RETURNING *",
-                [*values.values(), word_id],
+                f"UPDATE words SET {assignments} WHERE id = %s AND user_id = %s RETURNING *",
+                [*values.values(), word_id, user_id],
             ).fetchone()
     except Exception as err:  # psycopg.errors.UniqueViolation
         if getattr(err, "sqlstate", None) == "23505":
@@ -247,31 +254,36 @@ def update_word(word_id: int, changes: dict) -> dict | None:
     return _serialize(row) if row else None
 
 
-def delete_word(word_id: int) -> bool:
+def delete_word(user_id: str, word_id: int) -> bool:
     with connection() as conn:
-        return conn.execute("DELETE FROM words WHERE id = %s", [word_id]).rowcount > 0
+        return conn.execute(
+            "DELETE FROM words WHERE id = %s AND user_id = %s", [word_id, user_id]
+        ).rowcount > 0
 
 
-def find_by_word(word: str) -> dict | None:
+def find_by_word(user_id: str, word: str) -> dict | None:
     with connection() as conn:
-        row = conn.execute("SELECT * FROM words WHERE lower(word) = lower(%s)", [word.strip()]).fetchone()
+        row = conn.execute(
+            "SELECT * FROM words WHERE user_id = %s AND lower(word) = lower(%s)",
+            [user_id, word.strip()],
+        ).fetchone()
     return _serialize(row) if row else None
 
 
 # ── Quick add & topics ────────────────────────────────────────────────────────
 
 
-def topic_names() -> list[str]:
+def topic_names(user_id: str) -> list[str]:
     with connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT section FROM words WHERE section IS NOT NULL AND section <> %s "
-            "ORDER BY section",
-            [FALLBACK_TOPIC],
+            "SELECT DISTINCT section FROM words WHERE user_id = %s AND section IS NOT NULL "
+            "AND section <> %s ORDER BY section",
+            [user_id, FALLBACK_TOPIC],
         ).fetchall()
     return [r["section"] for r in rows]
 
 
-def quick_add(text: str) -> dict:
+def quick_add(user_id: str, text: str) -> dict:
     """Translate and store one English word/phrase with an automatic topic.
 
     status: created | exists | not_english | unavailable
@@ -286,13 +298,15 @@ def quick_add(text: str) -> dict:
     t0 = time.monotonic()
     # One pooled connection for both lookups: every checkout costs round-trips to the database.
     with connection() as conn:
-        row = conn.execute("SELECT * FROM words WHERE lower(word) = lower(%s)", [text]).fetchone()
+        row = conn.execute(
+            "SELECT * FROM words WHERE user_id = %s AND lower(word) = lower(%s)", [user_id, text]
+        ).fetchone()
         topics = [] if row else [
             r["section"]
             for r in conn.execute(
-                "SELECT DISTINCT section FROM words WHERE section IS NOT NULL AND section <> %s "
-                "ORDER BY section",
-                [FALLBACK_TOPIC],
+                "SELECT DISTINCT section FROM words WHERE user_id = %s AND section IS NOT NULL "
+                "AND section <> %s ORDER BY section",
+                [user_id, FALLBACK_TOPIC],
             ).fetchall()
         ]
     if row:
@@ -313,6 +327,7 @@ def quick_add(text: str) -> dict:
     try:
         # The insert skips duplicates itself, so no separate lookup for the lemma first.
         word = add_word(
+            user_id,
             {
                 "word": lemma,
                 "translation": translator.format_parts(tr.parts),
@@ -321,7 +336,7 @@ def quick_add(text: str) -> dict:
             }
         )
     except DuplicateWord:  # lemma already saved (e.g. "ran" when "run" exists)
-        return result("exists", find_by_word(lemma))
+        return result("exists", find_by_word(user_id, lemma))
     except ValidationError:  # model returned no usable translation
         return result("unavailable")
     finally:
@@ -329,37 +344,40 @@ def quick_add(text: str) -> dict:
     return result("created", word)
 
 
-def rename_topic(old: str, new: str) -> int:
+def rename_topic(user_id: str, old: str, new: str) -> int:
     new = (new or "").strip()
     if not new:
         raise ValidationError("New topic name cannot be empty")
     with connection() as conn:
-        where = "section = %s OR section IS NULL" if old == FALLBACK_TOPIC else "section = %s"
-        return conn.execute(f"UPDATE words SET section = %s WHERE {where}", [new, old]).rowcount
+        where = "(section = %s OR section IS NULL)" if old == FALLBACK_TOPIC else "section = %s"
+        return conn.execute(
+            f"UPDATE words SET section = %s WHERE user_id = %s AND {where}", [new, user_id, old]
+        ).rowcount
 
 
-def backfill_topics(limit: int = 200) -> dict:
+def backfill_topics(user_id: str, limit: int = 200) -> dict:
     """Assign topics to words without one, one Claude call per word; stops when Claude is unavailable."""
     with connection() as conn:
         rows = conn.execute(
-            "SELECT id, word, translation FROM words WHERE section IS NULL ORDER BY id LIMIT %s",
-            [limit],
+            "SELECT id, word, translation FROM words WHERE user_id = %s AND section IS NULL "
+            "ORDER BY id LIMIT %s",
+            [user_id, limit],
         ).fetchall()
     updated = 0
     for row in rows:
         try:
-            topic = translator.suggest_topic(row["word"], row["translation"], topic_names())
+            topic = translator.suggest_topic(row["word"], row["translation"], topic_names(user_id))
         except translator.TranslationUnavailable:
             break
         with connection() as conn:
             conn.execute(
-                "UPDATE words SET section = %s WHERE id = %s",
-                [topic.strip() or FALLBACK_TOPIC, row["id"]],
+                "UPDATE words SET section = %s WHERE id = %s AND user_id = %s",
+                [topic.strip() or FALLBACK_TOPIC, row["id"], user_id],
             )
         updated += 1
     with connection() as conn:
         remaining = conn.execute(
-            "SELECT COUNT(*) AS n FROM words WHERE section IS NULL"
+            "SELECT COUNT(*) AS n FROM words WHERE user_id = %s AND section IS NULL", [user_id]
         ).fetchone()["n"]
     return {"updated": updated, "remaining": remaining}
 
@@ -367,11 +385,13 @@ def backfill_topics(limit: int = 200) -> dict:
 # ── Review ────────────────────────────────────────────────────────────────────
 
 
-def review_word(word_id: int, quality: int, direction: str = "forward") -> dict | None:
+def review_word(user_id: str, word_id: int, quality: int, direction: str = "forward") -> dict | None:
     """Apply an SM-2 review to one direction's schedule only. None if the id is unknown."""
     p = _prefix(direction)
     with connection() as conn:
-        row = conn.execute("SELECT * FROM words WHERE id = %s FOR UPDATE", [word_id]).fetchone()
+        row = conn.execute(
+            "SELECT * FROM words WHERE id = %s AND user_id = %s FOR UPDATE", [word_id, user_id]
+        ).fetchone()
         if row is None:
             return None
         interval, ease, reps = apply_sm2(
@@ -389,7 +409,7 @@ def review_word(word_id: int, quality: int, direction: str = "forward") -> dict 
 # ── Sections & stats ──────────────────────────────────────────────────────────
 
 
-def list_sections() -> list[dict]:
+def list_sections(user_id: str) -> list[dict]:
     """Sections with word counts and due counts (forward / reverse).
 
     Words without a section are listed under FALLBACK_TOPIC.
@@ -400,14 +420,14 @@ def list_sections() -> list[dict]:
             """SELECT name, COUNT(*) AS words,
                       COUNT(*) FILTER (WHERE next_review <= %s) AS due,
                       COUNT(*) FILTER (WHERE reverse_next_review <= %s) AS due_reverse
-               FROM (SELECT COALESCE(section, %s) AS name, * FROM words) w
+               FROM (SELECT COALESCE(section, %s) AS name, * FROM words WHERE user_id = %s) w
                GROUP BY name ORDER BY MAX(created_at) DESC""",
-            [t, t, FALLBACK_TOPIC],
+            [t, t, FALLBACK_TOPIC, user_id],
         ).fetchall()
     return rows
 
 
-def get_stats() -> dict:
+def get_stats(user_id: str) -> dict:
     t = today()
     with connection() as conn:
         row = conn.execute(
@@ -418,8 +438,27 @@ def get_stats() -> dict:
                       COUNT(*) FILTER (WHERE ease_factor < %s OR reverse_ease_factor < %s
                                          OR lapses >= %s OR reverse_lapses >= %s) AS difficult,
                       COUNT(DISTINCT COALESCE(section, %s)) AS sections
-               FROM words""",
+               FROM words WHERE user_id = %s""",
             [t, t, LEARNED_REPETITIONS, EASE_DIFFICULT, EASE_DIFFICULT,
-             LAPSE_THRESHOLD, LAPSE_THRESHOLD, FALLBACK_TOPIC],
+             LAPSE_THRESHOLD, LAPSE_THRESHOLD, FALLBACK_TOPIC, user_id],
         ).fetchone()
     return dict(row)
+
+
+# ── Accounts ──────────────────────────────────────────────────────────────────
+
+
+def claim_unowned(user_id: str) -> int:
+    """Give words saved before accounts existed (user_id IS NULL) to `user_id`.
+
+    A word is skipped when that person already has the same spelling (the unique index would
+    refuse it); such leftovers stay unowned and invisible.
+    """
+    with connection() as conn:
+        return conn.execute(
+            """UPDATE words w SET user_id = %s::uuid
+               WHERE w.user_id IS NULL
+                 AND NOT EXISTS (SELECT 1 FROM words o
+                                 WHERE o.user_id = %s::uuid AND lower(o.word) = lower(w.word))""",
+            [user_id, user_id],
+        ).rowcount
