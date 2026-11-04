@@ -7,11 +7,12 @@ All functions are synchronous (psycopg); async callers run them in a worker thre
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from app import config
+from app import config, translator
 from app.db import connection
 
 DIRECTIONS = ("forward", "reverse")  # forward = EN -> UA, reverse = UA -> EN
 MAX_BULK = 50
+FALLBACK_TOPIC = "Без теми"
 
 # A word counts as "difficult" when its ease factor sank below this value or it
 # has been forgotten (quality < 3) at least LAPSE_THRESHOLD times, in either direction.
@@ -30,6 +31,7 @@ CONTENT_FIELDS = (
     "example_translation",
     "notes",
     "section",
+    "main_translation",
 )
 _REQUIRED = ("word", "translation")
 
@@ -105,9 +107,13 @@ def _filters(
     created_after: str | None = None,
     due_direction: str | None = None,
     difficult: bool = False,
+    sections: list[str] | None = None,
 ) -> tuple[str, list]:
     cond: list[str] = []
     params: list = []
+    if sections is not None:
+        cond.append("section = ANY(%s)")
+        params.append(list(sections))
     if section is not None:
         cond.append("section = %s")
         params.append(section)
@@ -184,9 +190,10 @@ def list_words(
     created_after: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    sections: list[str] | None = None,
 ) -> dict:
     """Return {"total": n, "words": [...]}; due_direction='forward'|'reverse' keeps only due words."""
-    where, params = _filters(section, search, created_after, due_direction, difficult)
+    where, params = _filters(section, search, created_after, due_direction, difficult, sections)
     order = f"{_prefix(due_direction)}next_review, id" if due_direction else "created_at DESC, id DESC"
     with connection() as conn:
         total = conn.execute(f"SELECT COUNT(*) AS n FROM words{where}", params).fetchone()["n"]
@@ -198,9 +205,9 @@ def list_words(
 
 
 def get_due(direction: str = "forward", section: str | None = None,
-            created_after: str | None = None) -> list[dict]:
-    return list_words(section=section, due_direction=direction, created_after=created_after,
-                      limit=1000)["words"]
+            created_after: str | None = None, sections: list[str] | None = None) -> list[dict]:
+    return list_words(section=section, sections=sections, due_direction=direction,
+                      created_after=created_after, limit=1000)["words"]
 
 
 def update_word(word_id: int, changes: dict) -> dict | None:
@@ -240,6 +247,94 @@ def find_by_word(word: str) -> dict | None:
     with connection() as conn:
         row = conn.execute("SELECT * FROM words WHERE lower(word) = lower(%s)", [word.strip()]).fetchone()
     return _serialize(row) if row else None
+
+
+# ── Quick add & topics ────────────────────────────────────────────────────────
+
+
+def topic_names() -> list[str]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT section FROM words WHERE section IS NOT NULL ORDER BY section"
+        ).fetchall()
+    return [r["section"] for r in rows]
+
+
+def quick_add(text: str) -> dict:
+    """Translate and store one English word/phrase with an automatic topic.
+
+    status: created | exists | not_english | unavailable
+    """
+    text = (text or "").strip()
+    if not text:
+        raise ValidationError("'text' is required")
+
+    def result(status: str, word: dict | None = None) -> dict:
+        return {"status": status, "input": text, "word": word}
+
+    if found := find_by_word(text):
+        return result("exists", found)
+    try:
+        tr = translator.translate(text, topic_names())
+    except translator.TranslationUnavailable:
+        return result("unavailable")
+    if not tr.is_english:
+        return result("not_english")
+    lemma = tr.lemma.strip()
+    if not lemma:
+        return result("unavailable")
+    if found := find_by_word(lemma):
+        return result("exists", found)
+    try:
+        word = add_word(
+            {
+                "word": lemma,
+                "translation": translator.format_parts(tr.parts),
+                "main_translation": tr.main,
+                "section": tr.topic.strip() or FALLBACK_TOPIC,
+            }
+        )
+    except DuplicateWord:  # concurrent insert of the same lemma
+        return result("exists", find_by_word(lemma))
+    except ValidationError:  # model returned no usable translation
+        return result("unavailable")
+    return result("created", word)
+
+
+def rename_topic(old: str, new: str) -> int:
+    new = (new or "").strip()
+    if not new:
+        raise ValidationError("New topic name cannot be empty")
+    with connection() as conn:
+        return conn.execute(
+            "UPDATE words SET section = %s WHERE section = %s", [new, old]
+        ).rowcount
+
+
+def backfill_topics(limit: int = 200) -> dict:
+    """Assign topics to words without one, one Claude call per word; stops when Claude is unavailable."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, word, translation FROM words WHERE section IS NULL ORDER BY id LIMIT %s",
+            [limit],
+        ).fetchall()
+    updated = 0
+    for row in rows:
+        try:
+            topic = translator.suggest_topic(row["word"], row["translation"], topic_names())
+        except translator.TranslationUnavailable:
+            break
+        with connection() as conn:
+            conn.execute(
+                "UPDATE words SET section = %s WHERE id = %s",
+                [topic.strip() or FALLBACK_TOPIC, row["id"]],
+            )
+        updated += 1
+    with connection() as conn:
+        remaining = conn.execute(
+            "SELECT COUNT(*) AS n FROM words WHERE section IS NULL"
+        ).fetchone()["n"]
+    return {"updated": updated, "remaining": remaining}
 
 
 # ── Review ────────────────────────────────────────────────────────────────────

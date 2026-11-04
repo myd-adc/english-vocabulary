@@ -113,3 +113,4 @@ def init_db() -> None:
         # Serialise concurrent startups (e.g. during a rolling deploy).
         conn.execute("SELECT pg_advisory_xact_lock(727274)")
         conn.execute(SCHEMA)
+        conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS main_translation TEXT")

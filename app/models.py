@@ -16,6 +16,7 @@ class WordCreate(BaseModel):
     example_translation: str | None = Field(None, description="Ukrainian translation of the example")
     notes: str | None = None
     section: str | None = None
+    main_translation: str | None = None
 
 
 class WordUpdate(BaseModel):
@@ -29,6 +30,7 @@ class WordUpdate(BaseModel):
     example_translation: str | None = None
     notes: str | None = None
     section: str | None = None
+    main_translation: str | None = None
 
 
 class WordResponse(BaseModel):
@@ -41,6 +43,7 @@ class WordResponse(BaseModel):
     example_translation: str | None = None
     notes: str | None = None
     section: str | None = None
+    main_translation: str | None = None
     created_at: str
     # EN -> UA schedule
     interval: int
@@ -93,3 +96,13 @@ class StatsResponse(BaseModel):
     learned: int
     difficult: int
     sections: int
+
+
+class QuickAddRequest(BaseModel):
+    text: str
+
+
+class QuickAddResponse(BaseModel):
+    status: str
+    input: str
+    word: WordResponse | None = None
