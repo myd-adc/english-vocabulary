@@ -40,7 +40,8 @@ export interface WordFields {
 }
 
 export type WordCreate = Pick<WordFields, "word" | "translation"> & Partial<WordFields>;
-export type WordUpdate = Partial<WordFields>;
+/** Only the fields that are sent change; null clears an optional one. */
+export type WordUpdate = { [K in keyof WordFields]?: WordFields[K] | null };
 
 export interface WordList {
   total: number;

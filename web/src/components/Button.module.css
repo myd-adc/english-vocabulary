@@ -1,0 +1,32 @@
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 48px; padding: 0 1.25rem; border: 1px solid transparent; border-radius: var(--radius);
+  font-size: 1rem; font-weight: 600; cursor: pointer;
+  transition: opacity var(--ease), transform var(--ease);
+}
+.btn:active { transform: scale(0.985); opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btnPrimary { background: var(--accent); color: var(--on-accent); }
+.btnSecondary { background: transparent; color: var(--text); border-color: var(--rule); font-weight: 500; }
+/* Any button marked busy shows a small spinner after its label */
+.btn[aria-busy="true"]::after {
+  content: ""; width: 0.9rem; height: 0.9rem; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btnIcon {
+  background: none; border: none; color: var(--text); cursor: pointer; border-radius: 50%;
+  min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+}
+.btnIcon:active { background: var(--fill); }
+
+.btnEdit, .btnDelete {
+  min-height: 44px; padding: 0 1rem; border-radius: var(--radius); font-weight: 600; cursor: pointer;
+  background: transparent; border: 1px solid var(--rule); color: var(--text);
+}
+.btnDelete { color: var(--danger); border-color: var(--danger); }
+
+@media (min-width: 900px) {
+  .btnIcon:hover { background: var(--fill); }
+}
