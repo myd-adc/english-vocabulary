@@ -84,16 +84,20 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
                 raise vocab.ValidationError("'word' is required")
 
         items = []
+        claude_down = False  # circuit breaker: after one failure skip Claude for the whole batch
         for w in manual:
             topic = w.get("section") or section_name
-            if not topic and (w.get("word") or "").strip() and not vocab.find_by_word(w["word"]):
+            if (not topic and not claude_down and (w.get("word") or "").strip()
+                    and not vocab.find_by_word(w["word"])):
                 try:
                     topic = translator.suggest_topic(
                         w["word"].strip(), w["translation"].strip(), vocab.topic_names()
                     ).strip()
                 except translator.TranslationUnavailable:
                     topic = None
-                topic = topic or vocab.FALLBACK_TOPIC
+                    claude_down = True
+            if not topic and not w.get("section") and not section_name:
+                topic = vocab.FALLBACK_TOPIC
             items.append({**w, "section": topic})
         saved, skipped = [], []
         if items:
@@ -103,6 +107,9 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
 
         existing, not_english, unavailable = [], [], []
         for w in auto:
+            if claude_down:
+                unavailable.append(w["word"].strip())
+                continue
             res = vocab.quick_add(w["word"])
             if res["status"] == "created":
                 saved.append(res["word"]["word"])
@@ -112,6 +119,7 @@ async def add_words(words: list[WordInput], section_name: str | None = None) -> 
                 not_english.append(res["input"])
             else:
                 unavailable.append(res["input"])
+                claude_down = True
 
         msg = f"Saved {len(saved)} words."
         if saved:

@@ -153,13 +153,56 @@ def test_add_words_auto_translation_and_topics(client, monkeypatch):
     out = asyncio.run(mcp_tools.add_words([
         {"word": "run"}, {"word": "run"}, {"word": "borsch"}, {"word": "down"},
         {"word": "apple", "translation": "яблуко"},
-        {"word": "fail", "translation": "провал"},
         {"word": "pear", "translation": "груша", "section": "Fruit"},
     ]))
-    assert "Saved 4" in out and "run" in out
+    assert "Saved 3" in out and "run" in out
     assert "already" in out.lower() and "not English: borsch" in out and "unavailable: down" in out
     from app import vocab
     assert vocab.find_by_word("run")["section"] == "Рух"
     assert vocab.find_by_word("apple")["section"] == "Їжа"
-    assert vocab.find_by_word("fail")["section"] == "Без теми"
     assert vocab.find_by_word("pear")["section"] == "Fruit"
+
+
+def test_add_words_stops_calling_claude_after_first_failure(client, monkeypatch):
+    import asyncio
+
+    from app import mcp_tools, translator, vocab
+    from app.translator import TranslationUnavailable
+
+    calls = []
+
+    def fake_topic(word, translation, existing):
+        calls.append(word)
+        raise TranslationUnavailable("down")
+
+    def fake_translate(text, existing):
+        calls.append(text)
+        raise TranslationUnavailable("down")
+
+    monkeypatch.setattr(translator, "suggest_topic", fake_topic)
+    monkeypatch.setattr(translator, "translate", fake_translate)
+    out = asyncio.run(mcp_tools.add_words([
+        {"word": "a1", "translation": "x"}, {"word": "a2", "translation": "y"},
+        {"word": "a3", "translation": "z"}, {"word": "u1"}, {"word": "u2"},
+    ]))
+    assert calls == ["a1"]
+    assert vocab.find_by_word("a2")["section"] == "Без теми"
+    assert vocab.find_by_word("a3")["section"] == "Без теми"
+    assert "unavailable: u1, u2" in out and vocab.find_by_word("u1") is None
+
+
+def test_add_words_breaker_trips_on_quick_add_failure(client, monkeypatch):
+    import asyncio
+
+    from app import mcp_tools, translator
+    from app.translator import TranslationUnavailable
+
+    calls = []
+
+    def fake_translate(text, existing):
+        calls.append(text)
+        raise TranslationUnavailable("down")
+
+    monkeypatch.setattr(translator, "translate", fake_translate)
+    out = asyncio.run(mcp_tools.add_words([{"word": "u1"}, {"word": "u2"}, {"word": "u3"}]))
+    assert calls == ["u1"] and "unavailable: u1, u2, u3" in out
