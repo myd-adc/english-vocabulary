@@ -28,3 +28,6 @@ PORT = int(os.getenv("PORT", "8000"))
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Kyiv")
 
 MCP_PATH = "/mcp"
+
+# Optional: enables Claude auto-translation and topics. The app runs without it.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
