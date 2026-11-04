@@ -23,5 +23,7 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.13.1
+      - key: NODE_VERSION      # used by the build step (npm ci + vite build)
+        value: 22.12.0
       - key: APP_TIMEZONE
         value: Europe/Kyiv
