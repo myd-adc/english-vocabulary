@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="LexiVocab" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>LexiVocab</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Вхід -->
+  <div id="view-login" class="view login-overlay">
+    <div class="login-card">
+      <img src="icon-192.png" alt="LexiVocab" class="login-logo" />
+      <h1>LexiVocab</h1>
+      <p class="login-subtitle">Англійські слова — щодня потроху</p>
+      <form id="login-form">
+        <input type="password" id="login-password" class="login-input" placeholder="Пароль"
+               autocomplete="current-password" required />
+        <button type="submit" class="btn btn-primary login-btn">Увійти</button>
+      </form>
+      <p id="login-error" class="error-msg hidden">Невірний пароль. Спробуйте ще раз.</p>
+    </div>
+  </div>
+
+  <!-- Головна -->
+  <div id="view-home" class="view hidden">
+    <header class="app-header">
+      <h1 class="app-title"><span aria-hidden="true">📖</span> LexiVocab</h1>
+      <div class="menu-wrap">
+        <button class="btn-icon" id="btn-menu" aria-label="Меню" aria-haspopup="menu"
+                aria-expanded="false" aria-controls="app-menu">⚙︎</button>
+        <div id="app-menu" class="menu hidden" role="menu" aria-label="Меню">
+          <button class="menu-item" id="btn-logout" role="menuitem">Вийти</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="home-main">
+      <div class="greeting">
+        <h2>Привіт!</h2>
+        <p>Кілька хвилин щодня — і слова запам'ятаються.</p>
+      </div>
+
+      <section class="hero" aria-labelledby="hero-count">
+        <p class="hero-eyebrow">Повторення</p>
+        <p class="hero-count" id="hero-count" aria-live="polite">—</p>
+        <p class="hero-sub" id="hero-sub">слів чекають на вас</p>
+        <button class="btn btn-primary btn-cta" id="btn-study">
+          <span id="btn-study-text">Почати</span> <span class="arrow" aria-hidden="true">→</span>
+        </button>
+      </section>
+
+      <dl class="metrics" aria-label="Прогрес">
+        <div class="metric"><dt class="metric-label">слів</dt><dd class="metric-number" id="m-total">—</dd></div>
+        <div class="metric"><dt class="metric-label">на сьогодні</dt><dd class="metric-number" id="m-due">—</dd></div>
+        <div class="metric"><dt class="metric-label">вивчено</dt><dd class="metric-number" id="m-learned">—</dd></div>
+        <div class="metric"><dt class="metric-label">складних</dt><dd class="metric-number" id="m-difficult">—</dd></div>
+      </dl>
+
+      <section class="settings" aria-labelledby="settings-title">
+        <h3 class="settings-title" id="settings-title">Налаштування</h3>
+
+        <div class="setting-row">
+          <label class="setting-label" for="section-select">Розділ</label>
+          <select id="section-select" class="native-select"><option value="">Усі розділи</option></select>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label" id="activity-label">Вправа</span>
+          <div class="segmented" id="activity-toggle" role="group" aria-labelledby="activity-label">
+            <button class="seg-btn active" data-activity="cards" aria-pressed="true">Картки</button>
+            <button class="seg-btn" data-activity="quiz" aria-pressed="false">Квіз</button>
+          </div>
+          <p class="setting-desc hidden" id="activity-desc">Лише практика: тест із варіантами відповіді по всіх словах розділу. Не змінює розклад повторень.</p>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label" id="dir-label">Напрямок</span>
+          <div class="segmented" id="dir-toggle" role="group" aria-labelledby="dir-label">
+            <button class="seg-btn active" data-dir="forward" aria-pressed="true">EN → UA</button>
+            <button class="seg-btn" data-dir="reverse" aria-pressed="false">UA → EN</button>
+          </div>
+        </div>
+
+        <div class="setting-row setting-row-inline">
+          <div class="setting-text">
+            <span class="setting-label" id="autoplay-label">Автоозвучення</span>
+            <span class="setting-desc" id="autoplay-desc">Вимовляти англійське слово та речення</span>
+            <span class="setting-desc voice-status hidden" id="voice-status"></span>
+          </div>
+          <button class="switch" id="autoplay-toggle" role="switch" aria-checked="true"
+                  aria-labelledby="autoplay-label" aria-describedby="autoplay-desc">
+            <span class="switch-knob" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+
+      <div class="home-actions">
+        <button class="link-btn" id="btn-browse">Усі слова <span class="arrow" aria-hidden="true">→</span></button>
+        <button class="link-btn" id="btn-add">+ Додати слово</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Навчання -->
+  <div id="view-study" class="view hidden">
+    <header class="app-header">
+      <button class="btn-icon" id="study-back" aria-label="Назад">←</button>
+      <h2>Навчання</h2>
+      <span id="study-progress"></span>
+    </header>
+    <main class="study-main" id="study-main">
+      <div id="study-loading" class="centered">Завантаження…</div>
+      <div id="study-empty" class="centered hidden">
+        <p>На сьогодні слів немає. Повертайтесь завтра!</p>
+        <button class="btn btn-secondary" id="study-done-btn">На головну</button>
+      </div>
+      <div id="study-done" class="centered hidden">
+        <h2>Сесію завершено!</h2>
+        <p id="study-done-count"></p>
+        <button class="btn btn-primary" id="study-again-btn">Ще раз</button>
+        <button class="btn btn-secondary" id="study-home-btn">На головну</button>
+      </div>
+      <p id="study-notice" class="centered hidden"></p>
+      <div id="quiz-area" class="hidden"></div>
+
+      <div id="flashcard-area" class="hidden">
+        <div class="card-wrap" id="card-wrap">
+          <div class="flashcard-scene" id="flashcard" role="button" tabindex="0"
+               aria-label="Торкніться, щоб перевернути картку">
+            <div class="flashcard-card">
+              <div class="flashcard-front">
+                <div class="card-lang" id="front-lang"></div>
+                <div class="card-word-row"><div class="card-word" id="front-main"></div></div>
+                <div class="card-ipa" id="front-sub"></div>
+                <div class="card-hint">торкніться, щоб перевернути</div>
+              </div>
+              <div class="flashcard-back">
+                <div class="card-lang" id="back-lang"></div>
+                <div class="card-definition" id="back-main"></div>
+                <div class="card-ipa" id="back-ipa"></div>
+                <div class="card-pos" id="back-pos"></div>
+                <div class="ex-block" id="back-example"></div>
+                <div class="card-notes" id="back-notes"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-speak-row">
+          <button class="btn btn-secondary" id="card-speak" type="button">🔊 Прослухати</button>
+        </div>
+
+        <div class="rating-buttons hidden" id="rating-buttons">
+          <p class="rating-label">Наскільки добре ви пам'ятали?</p>
+          <div class="rating-row">
+            <button class="btn-rating btn-rating-again" data-quality="0">Знову<small>← свайп</small></button>
+            <button class="btn-rating btn-rating-hard" data-quality="3">Важко</button>
+            <button class="btn-rating btn-rating-good" data-quality="4">Добре<small>свайп →</small></button>
+            <button class="btn-rating btn-rating-easy" data-quality="5">Легко</button>
+          </div>
+          <button class="btn-edit-card" id="btn-edit-card">✏️ Редагувати</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Усі слова -->
+  <div id="view-browse" class="view hidden">
+    <header class="app-header">
+      <button class="btn-icon" id="browse-back" aria-label="Назад">←</button>
+      <h2>Усі слова</h2>
+    </header>
+    <main class="browse-main">
+      <div class="browse-tools">
+        <input type="search" id="browse-search" class="login-input" placeholder="Пошук…"
+               autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <select id="browse-section" class="native-select" aria-label="Розділ"></select>
+        <select id="browse-filter" class="native-select" aria-label="Фільтр">
+          <option value="">Усі</option>
+          <option value="due">Лише на сьогодні</option>
+          <option value="difficult">Лише складні</option>
+        </select>
+      </div>
+      <div id="browse-loading" class="centered hidden">Завантаження…</div>
+      <div id="browse-empty" class="centered hidden"><p>Слів не знайдено.</p></div>
+      <div id="browse-list"></div>
+    </main>
+    <button class="fab" id="fab-add" aria-label="Додати слово">+</button>
+  </div>
+
+  <div id="offline-banner" class="offline-banner hidden">Немає з'єднання</div>
+
+  <!-- Додати / редагувати слово -->
+  <div id="edit-sheet-backdrop" aria-hidden="true">
+    <div id="edit-sheet" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+      <div class="edit-sheet-handle" aria-hidden="true"></div>
+      <h3 id="edit-title">Редагувати слово</h3>
+      <div class="edit-sheet-field"><label for="edit-word">Слово (англійською)</label>
+        <input type="text" id="edit-word" autocomplete="off" autocapitalize="off" /></div>
+      <div class="edit-sheet-field"><label for="edit-translation">Переклад</label>
+        <input type="text" id="edit-translation" autocomplete="off" /></div>
+      <div class="edit-sheet-field"><label for="edit-transcription">Транскрипція (IPA)</label>
+        <input type="text" id="edit-transcription" autocomplete="off" placeholder="/ˈæp.əl/" /></div>
+      <div class="edit-sheet-field"><label for="edit-pos">Частина мови</label>
+        <input type="text" id="edit-pos" autocomplete="off" placeholder="noun, verb…" /></div>
+      <div class="edit-sheet-field"><label for="edit-example">Приклад (англійською)</label>
+        <textarea id="edit-example" rows="2"></textarea></div>
+      <div class="edit-sheet-field"><label for="edit-example-translation">Переклад прикладу</label>
+        <textarea id="edit-example-translation" rows="2"></textarea></div>
+      <div class="edit-sheet-field"><label for="edit-notes">Нотатки</label>
+        <textarea id="edit-notes" rows="2"></textarea></div>
+      <div class="edit-sheet-field"><label for="edit-section">Розділ</label>
+        <input type="text" id="edit-section" list="section-options" autocomplete="off" />
+        <datalist id="section-options"></datalist></div>
+      <p id="edit-error" class="edit-error hidden"></p>
+      <div class="edit-sheet-actions">
+        <button id="edit-cancel" type="button">Скасувати</button>
+        <button id="edit-save" class="btn btn-primary" type="button">Зберегти</button>
+      </div>
+      <button id="edit-delete" class="btn-delete edit-sheet-delete" type="button">Видалити слово</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

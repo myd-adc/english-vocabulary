@@ -1,0 +1,89 @@
+# LexiVocab
+
+Особистий тренажер **англійських слів з українськими перекладами**: інтервальне повторення (SM-2), PWA для iPhone та віддалений MCP-сервер, через який Claude може зберігати слова просто з розмови.
+
+Один Python-процес на Render (безкоштовно) + Postgres на Supabase (безкоштовно):
+
+| Шлях | Що це |
+|---|---|
+| `/` | PWA (картки, квіз, список слів, озвучення en-US) |
+| `/api/...` | REST API для PWA (JWT після входу за `PWA_PASSWORD`) |
+| `/mcp` | MCP-сервер (streamable HTTP) + OAuth 2.1/PKCE/DCR; метадані в `/.well-known/...` |
+| `/health` | `{"status":"ok"}` (робить `SELECT 1`) — для пінгера |
+
+<p align="center"><img src="docs/screenshot.png" width="260" alt="Головний екран"></p>
+
+Проєкт адаптовано з vocabulary-mcp (китайська версія): збережено SM-2, окремі розклади для напрямків EN→UA та UA→EN, OAuth-провайдер і дизайн PWA; бекенд, MCP і статика об'єднані в один сервіс, SQLite замінено на Postgres.
+
+## Розгортання крок за кроком
+
+### 1. База даних (Supabase)
+1. [supabase.com](https://supabase.com) → **New project** (free), запам'ятайте пароль БД.
+2. Натисніть **Connect** → вкладка **Connection string** → тип **Session pooler** (IPv4, порт 5432). Скопіюйте рядок і підставте пароль:
+   `postgresql://postgres.<ref>:<ПАРОЛЬ>@aws-0-<регіон>.pooler.supabase.com:5432/postgres?sslmode=require`
+   Спецсимволи в паролі кодуйте (`@` → `%40`). Прямий хост (`db.<ref>.supabase.co`) не підходить: Render не має IPv6.
+3. Таблиці створюються самі при старті сервісу.
+
+### 2. GitHub
+```bash
+cd lexivocab
+git remote add origin git@github.com:<you>/lexivocab.git   # порожній (можна приватний) репозиторій
+git push -u origin master
+```
+
+### 3. Render (Blueprint)
+1. [render.com](https://render.com) → **New → Blueprint** → оберіть репозиторій. Render прочитає `render.yaml` (free web service).
+2. Введіть змінні (див. таблицю нижче): `DATABASE_URL`, `PWA_PASSWORD`, `MCP_SECRET` (`openssl rand -hex 32`). `ISSUER_URL` поки залиште будь-яким `https://...`.
+3. Після першого деплою скопіюйте URL сервісу (`https://lexivocab-xxxx.onrender.com`), встановіть його в **Environment → `ISSUER_URL`** (без `/` в кінці) і натисніть **Manual Deploy → Deploy latest commit**.
+4. Перевірка: `curl https://<url>/health` → `{"status":"ok"}`.
+
+### 4. Підключення до claude.ai
+**Settings → Connectors → Add custom connector** → URL: `ISSUER_URL` + `/mcp`, наприклад `https://lexivocab-xxxx.onrender.com/mcp`. Відкриється сторінка входу — введіть `MCP_SECRET`. Далі скажіть Claude: «збережи ці слова в LexiVocab».
+
+### 5. Пінг, щоб сервіс не засинав
+Безкоштовний Render засинає через 15 хв без трафіку (холодний старт ~1 хв). На [cron-job.org](https://cron-job.org): новий cron, URL `https://<url>/health`, кожні **10 хвилин**. Один сервіс 24/7 вкладається в ~750 безкоштовних годин. `/health` торкається БД, тож заодно Supabase не «призупиняє» проєкт за неактивність.
+
+### 6. PWA на iPhone
+Відкрийте `https://<url>/` у **Safari** → **Поділитися** → **На екран «Додому»** → **Додати**. Увійдіть паролем `PWA_PASSWORD`.
+
+## Змінні середовища
+
+| Змінна | Обов'язкова | Опис |
+|---|---|---|
+| `DATABASE_URL` | так | Рядок Postgres (Supabase Session pooler, `?sslmode=require`) |
+| `PWA_PASSWORD` | так | Пароль входу в PWA |
+| `MCP_SECRET` | так | Пароль на сторінці OAuth при додаванні конектора **і** ключ підпису токенів MCP |
+| `ISSUER_URL` | так (для MCP) | Публічний **https** URL сервісу без `/` в кінці |
+| `JWT_SECRET` | ні | Ключ JWT для PWA; за замовчуванням `MCP_SECRET` (Render генерує окремий) |
+| `PORT` | ні | Порт (Render виставляє сам; локально 8000) |
+| `APP_TIMEZONE` | ні | Часовий пояс для «на сьогодні», за замовчуванням `Europe/Kyiv` |
+
+## MCP-інструменти
+`add_words` (до 50, без дублікатів без урахування регістру), `list_words` (фільтри: розділ, лише на сьогодні, лише складні; показує ease factor, lapses, повторення для обох напрямків), `update_word`, `delete_word`, `list_sections`, `get_stats` (усього / на сьогодні / вивчено / складні).
+
+«Складне» слово: ease factor < 2.1 або ≥ 2 помилок (lapses) в будь-якому напрямку. «Вивчене»: ≥ 3 успішних повторень поспіль (EN→UA). Оцінки в PWA: Знову=0, Важко=3, Добре=4, Легко=5; помилка (0) повертає картку на завтра й зменшує ease на 0.2.
+
+## Локальний запуск і тести
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env   # заповніть DATABASE_URL (будь-який Postgres)
+uvicorn app.main:app --env-file .env --reload   # http://localhost:8000
+TEST_DATABASE_URL=postgresql://... pytest        # тести чистять таблицю words у цій БД!
+BASE_URL=http://localhost:8000 MCP_SECRET=... python tools/smoke_test.py   # перевірка OAuth+MCP
+```
+
+## Структура
+```
+app/        main.py (збірка ASGI), api.py (REST), vocab.py (логіка + SM-2), db.py (psycopg, схема),
+            mcp_tools.py (MCP-інструменти), oauth_provider.py / oauth_store.py / oauth_templates.py, auth.py
+pwa/        index.html, app.js, quiz.js, speech.js, style.css, sw.js, manifest.json, іконки
+tests/      pytest (API, SM-2, повний OAuth+MCP потік)
+tools/      make_icons.py, smoke_test.py
+render.yaml requirements.txt .env.example
+```
+
+## Обмеження
+- Безкоштовний Render без пінгера засинає; перший запит після сну ~1 хв.
+- Незавершені OAuth-входи зберігаються в пам'яті: після перезапуску сервісу підключення треба почати знову (токени й клієнти — у Postgres).
+- Озвучення залежить від голосів пристрою (iPhone: Налаштування › Універсальний доступ › Промовлений вміст › Голоси).

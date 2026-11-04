@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: lexivocab
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL      # Supabase Session pooler string (see README)
+        sync: false
+      - key: PWA_PASSWORD
+        sync: false
+      - key: MCP_SECRET
+        sync: false
+      - key: ISSUER_URL        # https://<service>.onrender.com (set after the first deploy)
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_TIMEZONE
+        value: Europe/Kyiv
