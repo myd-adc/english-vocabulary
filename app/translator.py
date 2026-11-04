@@ -6,6 +6,8 @@ Anthropic work by changing LLM_BASE_URL / LLM_MODEL).
 
 import logging
 import re
+import time
+from dataclasses import dataclass
 
 import openai
 import pydantic
@@ -73,54 +75,107 @@ class TranslationUnavailable(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class Provider:
+    api_key: str
+    base_url: str
+    model: str
+    reasoning_effort: str
+
+
+def providers() -> list[Provider]:
+    """The main LLM, then the backups from LLM_2_* ... LLM_9_*, in the order they are tried."""
+    main = Provider(config.LLM_API_KEY, config.LLM_BASE_URL, config.LLM_MODEL, config.LLM_REASONING_EFFORT)
+    out = [main] if main.api_key else []
+    for f in config.LLM_FALLBACKS:
+        p = Provider(f["api_key"] or main.api_key, f["base_url"] or main.base_url, f["model"],
+                     f["reasoning_effort"])
+        if p.api_key:
+            out.append(p)
+    return out
+
+
 def enabled() -> bool:
-    return bool(config.LLM_API_KEY)
+    return bool(providers())
 
 
-_cached_client: openai.OpenAI | None = None
+_clients: dict[tuple[str, str], openai.OpenAI] = {}
+# Provider -> time.monotonic() until which it is skipped (rate-limited or down).
+_cooldown_until: dict[Provider, float] = {}
+RATE_LIMIT_COOLDOWN = 60.0
+OUTAGE_COOLDOWN = 30.0
+MAX_COOLDOWN = 600.0
 
 
-def _client() -> openai.OpenAI:
-    # One shared client keeps the HTTPS connection alive between words (no new TLS handshake).
+def _client(provider: Provider) -> openai.OpenAI:
+    # One shared client per API keeps the HTTPS connection alive between words (no new TLS handshake).
     # No retries: on a rate limit the SDK would sleep for the server's Retry-After (up to a minute);
-    # failing fast lets the user type the translation or try again.
-    global _cached_client
-    if _cached_client is None:
-        _cached_client = openai.OpenAI(
-            api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL, timeout=12.0, max_retries=0
+    # failing fast moves on to the next provider instead.
+    key = (provider.base_url, provider.api_key)
+    if key not in _clients:
+        _clients[key] = openai.OpenAI(
+            api_key=provider.api_key, base_url=provider.base_url, timeout=12.0, max_retries=0
         )
-    return _cached_client
+    return _clients[key]
 
 
 def warm_up() -> None:
-    """Open the HTTPS connection to the LLM ahead of the first word (startup / wake-up),
+    """Open the HTTPS connection to the main LLM ahead of the first word (startup / wake-up),
     so the user's first translation doesn't pay for connection setup. Never raises."""
     if not enabled():
         return
     try:
-        _client().models.list()
+        _client(providers()[0]).models.list()
     except Exception as e:  # noqa: BLE001 - best effort only
         log.info("translator warm-up skipped: %s", type(e).__name__)
 
 
-def _parse(system: str, user: str, output_format: type[BaseModel]):
-    if not enabled():
-        raise TranslationUnavailable("LLM_API_KEY is not set")
-    try:
-        completion = _client().chat.completions.parse(
-            model=config.LLM_MODEL,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            response_format=output_format,
-            **({"reasoning_effort": config.LLM_REASONING_EFFORT} if config.LLM_REASONING_EFFORT else {}),
-        )
-    except (openai.OpenAIError, pydantic.ValidationError, ValueError) as e:
-        log.warning("translator call failed: %s: %s", type(e).__name__, e)
-        raise TranslationUnavailable(str(e)) from e
+def _cooldown_for(e: Exception) -> float:
+    if isinstance(e, openai.RateLimitError):
+        try:
+            return min(float(e.response.headers.get("retry-after", "")), MAX_COOLDOWN)
+        except ValueError:
+            return RATE_LIMIT_COOLDOWN
+    if isinstance(e, (openai.APITimeoutError, openai.APIConnectionError, openai.InternalServerError)):
+        return OUTAGE_COOLDOWN
+    return 0.0
+
+
+def _parse_with(provider: Provider, system: str, user: str, output_format: type[BaseModel]):
+    completion = _client(provider).chat.completions.parse(
+        model=provider.model,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        response_format=output_format,
+        **({"reasoning_effort": provider.reasoning_effort} if provider.reasoning_effort else {}),
+    )
     message = completion.choices[0].message if completion.choices else None
     if message is None or message.refusal or message.parsed is None:
-        log.warning("translator got no usable output (refusal=%s)", getattr(message, "refusal", None))
+        log.warning("translator %s got no usable output (refusal=%s)", provider.model,
+                    getattr(message, "refusal", None))
         raise TranslationUnavailable("no usable response from model")
     return message.parsed
+
+
+def _parse(system: str, user: str, output_format: type[BaseModel]):
+    chain = providers()
+    if not chain:
+        raise TranslationUnavailable("LLM_API_KEY is not set")
+    now = time.monotonic()
+    ready = [p for p in chain if _cooldown_until.get(p, 0.0) <= now]
+    last_error: Exception = TranslationUnavailable("every LLM is cooling down after a rate limit")
+    for provider in ready:
+        try:
+            return _parse_with(provider, system, user, output_format)
+        except (openai.OpenAIError, pydantic.ValidationError, ValueError, TranslationUnavailable) as e:
+            last_error = e
+            pause = _cooldown_for(e)
+            if pause:
+                _cooldown_until[provider] = time.monotonic() + pause
+            log.warning("translator call to %s failed: %s: %s%s", provider.model, type(e).__name__, e,
+                        f" (skipping it for {pause:.0f}s)" if pause else "")
+    if isinstance(last_error, TranslationUnavailable):
+        raise last_error
+    raise TranslationUnavailable(str(last_error)) from last_error
 
 
 def _match_topic(topic: str, existing_topics: list[str]) -> str:

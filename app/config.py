@@ -48,3 +48,23 @@ LLM_BASE_URL = os.getenv(
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-flash-lite-latest").strip()
 # Optional, for reasoning models (e.g. Groq's openai/gpt-oss-120b): "low" is faster and uses fewer tokens.
 LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "").strip()
+
+
+def _llm_fallbacks() -> list[dict[str, str]]:
+    """Backup LLMs tried in order when the main one is rate-limited or down: LLM_2_MODEL,
+    LLM_2_API_KEY, LLM_2_BASE_URL, LLM_2_REASONING_EFFORT, then LLM_3_..., up to LLM_9_.
+    A missing key or base URL is taken from the main LLM (e.g. another model on the same Groq key)."""
+    out = []
+    for i in range(2, 10):
+        model = os.getenv(f"LLM_{i}_MODEL", "").strip()
+        if model:
+            out.append({
+                "model": model,
+                "api_key": os.getenv(f"LLM_{i}_API_KEY", "").strip(),
+                "base_url": os.getenv(f"LLM_{i}_BASE_URL", "").strip(),
+                "reasoning_effort": os.getenv(f"LLM_{i}_REASONING_EFFORT", "").strip(),
+            })
+    return out
+
+
+LLM_FALLBACKS = _llm_fallbacks()

@@ -46,7 +46,9 @@ def _tr(**over):
 
 def _use(monkeypatch, client):
     monkeypatch.setattr(config, "LLM_API_KEY", "test-key")
-    monkeypatch.setattr(translator, "_client", lambda: client)
+    monkeypatch.setattr(config, "LLM_FALLBACKS", [])
+    monkeypatch.setattr(translator, "_client", lambda provider: client)
+    translator._cooldown_until.clear()
     return client
 
 
@@ -164,3 +166,63 @@ def test_reasoning_effort_passed_only_when_set(monkeypatch):
     monkeypatch.setattr(config, "LLM_REASONING_EFFORT", "low")
     translate("run", [])
     assert c.calls[-1]["reasoning_effort"] == "low"
+
+
+def _rate_limited(retry_after=None):
+    headers = {"retry-after": str(retry_after)} if retry_after else {}
+    resp = httpx.Response(429, headers=headers, request=httpx.Request("POST", "https://x"))
+    return openai.RateLimitError("limit", response=resp, body=None)
+
+
+def _chain(monkeypatch, clients_by_model, fallbacks):
+    monkeypatch.setattr(config, "LLM_API_KEY", "main-key")
+    monkeypatch.setattr(config, "LLM_BASE_URL", "https://main/v1")
+    monkeypatch.setattr(config, "LLM_MODEL", "main-model")
+    monkeypatch.setattr(config, "LLM_REASONING_EFFORT", "low")
+    monkeypatch.setattr(config, "LLM_FALLBACKS", fallbacks)
+    seen = []
+
+    def client_for(provider):
+        seen.append(provider)
+        return clients_by_model[provider.model]
+
+    monkeypatch.setattr(translator, "_client", client_for)
+    translator._cooldown_until.clear()
+    return seen
+
+
+def test_falls_back_when_main_is_rate_limited(monkeypatch):
+    main = FakeClient(exc=_rate_limited())
+    backup = FakeClient(_ok(_tr(lemma="walk")))
+    seen = _chain(monkeypatch, {"main-model": main, "backup": backup},
+                  [{"model": "backup", "api_key": "", "base_url": "", "reasoning_effort": ""}])
+    assert translate("walk", []).lemma == "walk"
+    assert backup.calls[0]["model"] == "backup"
+    assert "reasoning_effort" not in backup.calls[0]
+    # a backup without its own key / base URL reuses the main one
+    assert (seen[1].api_key, seen[1].base_url) == ("main-key", "https://main/v1")
+
+
+def test_rate_limited_provider_is_skipped_until_cooldown_ends(monkeypatch):
+    main = FakeClient(exc=_rate_limited(retry_after=30))
+    backup = FakeClient(_ok(_tr()))
+    _chain(monkeypatch, {"main-model": main, "backup": backup},
+           [{"model": "backup", "api_key": "k2", "base_url": "https://b/v1", "reasoning_effort": ""}])
+    translate("run", [])
+    translate("run", [])
+    assert len(main.calls) == 1 and len(backup.calls) == 2
+
+
+def test_all_providers_failing_is_unavailable(monkeypatch):
+    err = openai.APIConnectionError(request=httpx.Request("POST", "https://x"))
+    _chain(monkeypatch, {"main-model": FakeClient(exc=err), "backup": FakeClient(exc=err)},
+           [{"model": "backup", "api_key": "", "base_url": "", "reasoning_effort": ""}])
+    with pytest.raises(TranslationUnavailable):
+        translate("run", [])
+
+
+def test_bad_output_from_main_tries_backup(monkeypatch):
+    backup = FakeClient(_ok(_tr()))
+    _chain(monkeypatch, {"main-model": FakeClient(REFUSAL), "backup": backup},
+           [{"model": "backup", "api_key": "", "base_url": "", "reasoning_effort": ""}])
+    assert translate("run", []).lemma == "run"

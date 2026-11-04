@@ -71,6 +71,7 @@ git push -u origin main
 | `LLM_BASE_URL` | ні | Будь-який OpenAI-сумісний API; за замовчуванням `https://generativelanguage.googleapis.com/v1beta/openai/` (Gemini). Groq, Mistral, OpenRouter, Anthropic теж підходять |
 | `LLM_MODEL` | ні | Модель, за замовчуванням `gemini-flash-lite-latest` |
 | `LLM_REASONING_EFFORT` | ні | Для моделей із міркуванням, напр. `low` для `openai/gpt-oss-120b`. Швидше й менше токенів |
+| `LLM_2_MODEL`, `LLM_2_API_KEY`, `LLM_2_BASE_URL`, `LLM_2_REASONING_EFFORT` (і далі `LLM_3_…` до `LLM_9_…`) | ні | Запасні LLM. Якщо основна відповіла «ліміт» (429), впала чи не відповіла за 12 с, запит іде до наступної; та, що відповіла «ліміт», пропускається, доки не мине її пауза. Без ключа чи адреси береться ключ і адреса основної (напр. інша модель на тому самому ключі Groq) |
 
 | `PORT` | ні | Порт (Render виставляє сам; локально 8000) |
 | `APP_TIMEZONE` | ні | Часовий пояс для «на сьогодні», за замовчуванням `Europe/Kyiv` |
