@@ -40,6 +40,7 @@
         <button class="btn-icon" id="btn-menu" aria-label="Меню" aria-haspopup="menu"
                 aria-expanded="false" aria-controls="app-menu"><span data-icon="more"></span></button>
         <div id="app-menu" class="menu hidden" role="menu" aria-label="Меню">
+          <button class="menu-item hidden" id="btn-backfill" role="menuitem">Розкласти слова без теми</button>
           <button class="menu-item" id="btn-logout" role="menuitem">Вийти</button>
         </div>
       </div>
@@ -57,6 +58,7 @@
 
       <section aria-labelledby="topics-title">
         <h2 class="section-title" id="topics-title">Теми</h2>
+        <p id="home-note" class="home-note hidden" role="status"></p>
         <div class="tiles" id="tiles"></div>
       </section>
     </main>

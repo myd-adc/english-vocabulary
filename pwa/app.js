@@ -348,7 +348,7 @@ async function saveManual(inp, btn) {
     renderQuickResult();
     refreshTiles();
   } catch (err) {
-    quickState.error = err.message || "Не вдалося зберегти.";
+    quickState.error = err instanceof TypeError ? "Немає з'єднання." : err.message || "Не вдалося зберегти.";
     renderQuickResult();
   } finally {
     quickBusy = false;
@@ -376,7 +376,10 @@ const appMenu = $("app-menu");
 function setMenuOpen(open) {
   appMenu.classList.toggle("hidden", !open);
   menuBtn.setAttribute("aria-expanded", String(open));
-  if (open) appMenu.querySelector("[role=menuitem]").focus();
+  if (open) {
+    $("btn-backfill").classList.toggle("hidden", !sections.some((s) => s.name === FALLBACK_TOPIC));
+    appMenu.querySelector("[role=menuitem]:not(.hidden)").focus();
+  }
 }
 menuBtn.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -384,6 +387,39 @@ menuBtn.addEventListener("click", (e) => {
 });
 document.addEventListener("click", (e) => {
   if (!appMenu.classList.contains("hidden") && !appMenu.contains(e.target)) setMenuOpen(false);
+});
+const backfillBtn = $("btn-backfill");
+$("btn-backfill").addEventListener("click", async () => {
+  if (backfillBtn.disabled) return;
+  backfillBtn.disabled = true;
+  backfillBtn.textContent = "Розкладаю…";
+  let total = 0;
+  let failed = false;
+  try {
+    // each call handles a capped batch; stop when nothing was updated (translator down)
+    for (;;) {
+      const res = await apiFetch("/topics/backfill", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const { updated, remaining } = await res.json();
+      total += updated;
+      if (remaining <= 0 || updated === 0) {
+        failed = remaining > 0;
+        break;
+      }
+    }
+  } catch {
+    failed = true;
+  }
+  await refreshTiles();
+  setMenuOpen(false);
+  backfillBtn.disabled = false;
+  backfillBtn.textContent = "Розкласти слова без теми";
+  const note = $("home-note");
+  note.textContent = failed
+    ? total ? `Розкладено ${pluralWords(total)}. Решту — пізніше.` : "Не вдалося розкласти слова."
+    : `Розкладено ${pluralWords(total)}`;
+  note.classList.remove("hidden");
+  setTimeout(() => note.classList.add("hidden"), 6000);
 });
 $("btn-logout").addEventListener("click", () => {
   setMenuOpen(false);
@@ -672,7 +708,9 @@ async function openTopic(name) {
   loadSections(); // keeps the rename merge hint and edit-sheet suggestions current
 }
 
+let topicReq = 0;
 async function renderTopic() {
+  const req = ++topicReq;
   topicList.replaceChildren();
   $("topic-loading").classList.remove("hidden");
   $("topic-empty").classList.add("hidden");
@@ -684,8 +722,11 @@ async function renderTopic() {
   try {
     const res = await apiFetch(`/vocabulary?${p}`);
     if (!res.ok) throw new Error();
-    topicWords = (await res.json()).words;
+    const words = (await res.json()).words;
+    if (req !== topicReq) return;
+    topicWords = words;
   } catch {
+    if (req !== topicReq) return;
     $("topic-loading").classList.add("hidden");
     showErrorMsg(topicList, "Не вдалося завантажити слова.");
     return;
@@ -710,7 +751,7 @@ function buildWordRow(w) {
   main.type = "button";
   main.append(
     el("span", "word-title", w.word),
-    el("span", "word-def", shortMeaning(w).split("\n")[0])
+    el("span", "word-def", shortMeaning(w))
   );
   const speakBtn = el("button", "btn-icon btn-speak");
   speakBtn.type = "button";

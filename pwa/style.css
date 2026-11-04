@@ -107,7 +107,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .menu-wrap { position: relative; }
 .menu {
-  position: absolute; right: 0; top: calc(100% + 2px); min-width: 160px; z-index: 20;
+  position: absolute; right: 0; top: calc(100% + 2px); min-width: 160px; z-index: 20; white-space: nowrap;
   background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.25rem;
 }
 .menu-item {
@@ -197,7 +197,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .segmented { display: flex; border: 1px solid var(--rule); border-radius: var(--radius); padding: 2px; gap: 2px; }
 .seg-btn {
-  flex: 1; min-height: 40px; border: none; border-radius: var(--radius-sm); background: transparent;
+  flex: 1; min-height: 44px; border: none; border-radius: var(--radius-sm); background: transparent;
   color: var(--text-2); font-weight: 500; cursor: pointer;
 }
 .seg-btn.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
@@ -429,3 +429,5 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+.home-note { color: var(--text-2); font-size: 0.9375rem; margin: 0 0 0.75rem; }

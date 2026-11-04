@@ -37,7 +37,8 @@ export function exampleBlock(card) {
 }
 
 // Short answer for options and prompts: the main meaning, else the full translation.
-export const shortMeaning = (c) => c.main_translation || c.translation;
+export const shortMeaning = (c) =>
+  c.main_translation || (c.translation || "").split("\n").find((l) => l.trim()) || "";
 
 // label(card) = what an option shows (and what must differ between options)
 const KINDS = {

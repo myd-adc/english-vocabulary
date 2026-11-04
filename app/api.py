@@ -92,7 +92,7 @@ def rename_topic(name: str, payload: TopicRename):
 
 @protected.post("/topics/backfill")
 def backfill_topics():
-    # capped per request to stay under proxy timeouts; the caller loops while `remaining` > 0
+    # capped per request to stay under proxy timeouts; the caller loops while `remaining` > 0 and stops when `updated` == 0 (translator unavailable)
     return vocab.backfill_topics(limit=BACKFILL_BATCH)
 
 
