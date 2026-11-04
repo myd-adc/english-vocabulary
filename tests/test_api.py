@@ -160,3 +160,14 @@ def test_sections_include_untopiced(client, headers):
     got = client.get("/api/vocabulary?section=Без теми", headers=headers).json()
     assert got["total"] == 2
     assert client.get("/api/vocabulary/due?section=Без теми", headers=headers).json().__len__() == 2
+
+
+def test_backfill_endpoint_caps_batch(client, headers, monkeypatch):
+    from app import translator
+    monkeypatch.setattr(translator, "suggest_topic", lambda w, t, ex: "Їжа")
+    for i in range(25):
+        client.post("/api/vocabulary", json={"word": f"w{i}", "translation": "т"}, headers=headers)
+    r = client.post("/api/topics/backfill", headers=headers)
+    assert r.json() == {"updated": 20, "remaining": 5}
+    r = client.post("/api/topics/backfill", headers=headers)
+    assert r.json() == {"updated": 5, "remaining": 0}

@@ -20,6 +20,8 @@ from app.models import (
     WordUpdate,
 )
 
+BACKFILL_BATCH = 20
+
 api = FastAPI(title="LexiVocab API", docs_url="/docs", openapi_url="/openapi.json")
 
 
@@ -90,7 +92,8 @@ def rename_topic(name: str, payload: TopicRename):
 
 @protected.post("/topics/backfill")
 def backfill_topics():
-    return vocab.backfill_topics()
+    # capped per request to stay under proxy timeouts; the caller loops while `remaining` > 0
+    return vocab.backfill_topics(limit=BACKFILL_BATCH)
 
 
 @protected.get("/vocabulary", response_model=WordListResponse)
