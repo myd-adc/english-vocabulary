@@ -1,6 +1,7 @@
 """Claude-backed EN -> UA translation and topic assignment."""
 
 import anthropic
+import pydantic
 from pydantic import BaseModel
 
 from app import config
@@ -74,7 +75,7 @@ def _parse(system: str, user: str, output_format: type[BaseModel]):
             messages=[{"role": "user", "content": user}],
             output_format=output_format,
         )
-    except anthropic.APIError as e:
+    except (anthropic.APIError, pydantic.ValidationError, ValueError) as e:
         raise TranslationUnavailable(str(e)) from e
     if msg.stop_reason == "refusal" or msg.parsed_output is None:
         raise TranslationUnavailable("no usable response from model")

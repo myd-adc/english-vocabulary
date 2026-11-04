@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import anthropic
 import httpx
+import pydantic
 import pytest
 
 from app import config, translator
@@ -113,3 +114,15 @@ def test_suggest_topic_error(monkeypatch):
     _use(monkeypatch, FakeClient(SimpleNamespace(parsed_output=None, stop_reason="refusal")))
     with pytest.raises(TranslationUnavailable):
         suggest_topic("bread", "хліб", [])
+
+
+def test_invalid_structured_output_becomes_unavailable(monkeypatch):
+    try:
+        Translation.model_validate({})
+    except pydantic.ValidationError as e:
+        err = e
+    _use(monkeypatch, FakeClient(exc=err))
+    with pytest.raises(TranslationUnavailable):
+        translate("run", [])
+    with pytest.raises(TranslationUnavailable):
+        suggest_topic("run", "бігти", [])
