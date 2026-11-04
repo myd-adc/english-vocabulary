@@ -1,18 +1,19 @@
-"""Generate the PWA icons (run once: python tools_make_icons.py)."""
+"""Generate the PWA icons: a serif monogram on ink green (run from the repo root: python tools/make_icons.py)."""
 from PIL import Image, ImageDraw, ImageFont
 
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+INK = "#1f5a47"
+PAPER = "#f2f3ef"
 
 
 def make(size: int, path: str) -> None:
-    img = Image.new("RGB", (size, size), "#0071e3")
+    img = Image.new("RGB", (size, size), INK)
     d = ImageDraw.Draw(img)
-    # soft darker lower band for depth
-    d.rectangle([0, int(size * 0.62), size, size], fill="#0066cc")
-    f = ImageFont.truetype(FONT, int(size * 0.46))
-    small = ImageFont.truetype(FONT, int(size * 0.17))
-    d.text((size * 0.5, size * 0.40), "Aa", font=f, fill="white", anchor="mm")
-    d.text((size * 0.5, size * 0.78), "EN → УК", font=small, fill="white", anchor="mm")
+    f = ImageFont.truetype(FONT, int(size * 0.52))
+    d.text((size * 0.5, size * 0.47), "Lv", font=f, fill=PAPER, anchor="mm")
+    # thin rule under the monogram, like a headword underline in a dictionary
+    y = int(size * 0.74)
+    d.line([(size * 0.27, y), (size * 0.73, y)], fill=PAPER, width=max(1, size // 128))
     img.save(path)
 
 

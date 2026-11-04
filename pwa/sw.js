@@ -1,6 +1,6 @@
-const CACHE_NAME = "lexivocab-v1";
+const CACHE_NAME = "lexivocab-v2";
 const STATIC_ASSETS = [
-  "/", "/index.html", "/app.js", "/quiz.js", "/speech.js", "/style.css", "/manifest.json",
+  "/", "/index.html", "/app.js", "/quiz.js", "/speech.js", "/icons.js", "/style.css", "/manifest.json",
   "/icon-192.png", "/apple-touch-icon.png",
 ];
 

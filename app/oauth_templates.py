@@ -7,27 +7,34 @@ _LOGIN_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LexiVocab — Вхід</title>
+  <title>LexiVocab: вхід</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    :root { color-scheme: light dark; --bg:#f2f3ef; --text:#1a1d1b; --text-2:#5a625d; --rule:#d3d7d0;
+            --surface:#fafaf8; --accent:#1f5a47; --on-accent:#f6f8f5; --danger:#a3261e; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#101412; --text:#e9eae4; --text-2:#99a39c; --rule:#2b332e; --surface:#171c19;
+              --accent:#8ccaae; --on-accent:#0f1f18; --danger:#f08a80; }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-           margin: 0; background: #f5f5f7; }
-    .card { background: #fff; padding: 2rem; border-radius: 14px; width: 100%; max-width: 360px;
-            box-shadow: 0 2px 12px rgba(0,0,0,.1); margin: 1rem; }
-    h1 { font-size: 1.25rem; margin: 0 0 .25rem; text-align: center; }
-    p.sub { color: #555; font-size: .875rem; text-align: center; margin: 0 0 1.5rem; }
-    label { display: block; margin-bottom: .5rem; font-size: .875rem; color: #333; }
-    input[type=password] { width: 100%; padding: .65rem; border: 1px solid #ccc; border-radius: 8px;
-            font-size: 1rem; box-sizing: border-box; }
-    button { width: 100%; padding: .75rem; margin-top: 1rem; background: #0071e3; color: #fff;
-             border: none; border-radius: 999px; font-size: 1rem; cursor: pointer; }
-    .error { color: #b3261e; font-size: .875rem; margin-bottom: 1rem; text-align: center; }
+           margin: 0; padding: 1.5rem; background: var(--bg); color: var(--text); }
+    .card { width: 100%; max-width: 340px; }
+    h1 { font-family: ui-serif, "New York", Georgia, serif; font-size: 2rem; font-weight: 600; margin: 0 0 .25rem; }
+    p.sub { color: var(--text-2); font-size: .9375rem; margin: 0 0 1.5rem; }
+    label { display: block; margin-bottom: .375rem; font-size: .8125rem; color: var(--text-2); }
+    input[type=password] { width: 100%; min-height: 48px; padding: 0 .875rem; border: 1px solid var(--rule);
+            border-radius: 8px; font-size: 1rem; background: var(--surface); color: var(--text); }
+    input[type=password]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button { width: 100%; min-height: 48px; margin-top: .75rem; background: var(--accent); color: var(--on-accent);
+             border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .error { color: var(--danger); font-size: .9375rem; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>LexiVocab</h1>
-    <p class="sub">Дозволити Claude доступ до вашого словника</p>
+    <p class="sub">Дозволити Claude доступ до словника</p>
     __ERROR__
     <form method="POST" action="/authorize/submit">
       <input type="hidden" name="auth_params" value="__NONCE__">

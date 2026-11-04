@@ -1,4 +1,5 @@
 import { createQuiz, exampleBlock } from "./quiz.js";
+import { hydrateIcons, iconEl } from "./icons.js";
 import {
   canSpeak,
   getSettings,
@@ -34,6 +35,7 @@ async function apiFetch(path, options = {}) {
 }
 
 const $ = (id) => document.getElementById(id);
+hydrateIcons();
 
 // ── Service worker ────────────────────────────────────────────────────────────
 if ("serviceWorker" in navigator) {
@@ -84,7 +86,7 @@ $("login-form").addEventListener("submit", async (e) => {
     loadHome();
   } else {
     $("login-error").textContent =
-      res.status === 429 ? "Забагато спроб. Зачекайте кілька хвилин." : "Невірний пароль. Спробуйте ще раз.";
+      res.status === 429 ? "Забагато спроб. Спробуй за кілька хвилин." : "Невірний пароль.";
     $("login-error").classList.remove("hidden");
     $("login-password").select();
   }
@@ -103,7 +105,7 @@ function showView(name) {
 function showErrorMsg(container, text) {
   const p = document.createElement("p");
   p.className = "error-msg";
-  p.textContent = navigator.onLine ? text : "Немає з'єднання. Підключіться до мережі.";
+  p.textContent = navigator.onLine ? text : "Немає з'єднання.";
   container.appendChild(p);
 }
 
@@ -127,18 +129,16 @@ const isDifficult = (w) =>
 // ── Home ──────────────────────────────────────────────────────────────────────
 function renderDue(count) {
   const hero = $("hero-count");
+  hero.classList.toggle("is-text", count === 0);
   if (count === null) {
-    hero.textContent = "—";
-    $("hero-sub").textContent = "слів чекають на вас";
+    hero.textContent = "–";
+    $("hero-sub").textContent = "до повторення";
   } else if (count === 0) {
     hero.textContent = "Усе повторено";
-    $("hero-sub").textContent = "Зараз слів для повторення немає";
+    $("hero-sub").textContent = "На сьогодні слів немає";
   } else {
     hero.textContent = String(count);
-    const n10 = count % 10;
-    const n100 = count % 100;
-    const word = n10 === 1 && n100 !== 11 ? "слово чекає" : "слів чекають";
-    $("hero-sub").textContent = `${word} на вас`;
+    $("hero-sub").textContent = "до повторення";
   }
 }
 
@@ -301,8 +301,8 @@ const quiz = createQuiz(studyEl.quiz, {
     studyEl.quiz.classList.add("hidden");
     showStudyDone();
     studyEl.doneCount.textContent = asked
-      ? `Ви відповіли на ${asked} питань, правильно: ${correct}.`
-      : "Ви завершили квіз, не відповівши на жодне питання.";
+      ? `Відповідей: ${asked}, правильних: ${correct}.`
+      : "Квіз завершено без відповідей.";
   },
 });
 
@@ -324,7 +324,7 @@ async function loadStudy() {
     dueCards = shuffle(await res.json());
   } catch {
     studyEl.loading.classList.add("hidden");
-    showErrorMsg(studyEl.main, "Не вдалося завантажити слова. Спробуйте ще раз.");
+    showErrorMsg(studyEl.main, "Не вдалося завантажити слова.");
     return;
   }
   studyEl.loading.classList.add("hidden");
@@ -346,8 +346,8 @@ async function startQuiz() {
   if (deck.length < 4 || cards.length === 0) {
     studyEl.notice.textContent =
       deck.length < 4
-        ? "Для квізу потрібно щонайменше 4 слова. Спробуйте картки."
-        : "У цьому розділі немає слів.";
+        ? "Для квізу потрібно щонайменше 4 слова."
+        : "У цьому розділі слів немає.";
     studyEl.notice.classList.remove("hidden");
     return;
   }
@@ -601,10 +601,11 @@ function buildWordItem(w) {
 
   const summary = el("div", "word-summary");
   summary.append(text);
-  const speakBtn = el("button", "btn-icon btn-speak", "🔊");
+  const speakBtn = el("button", "btn-icon btn-speak");
+  speakBtn.append(iconEl("speaker"));
   speakBtn.type = "button";
   speakBtn.setAttribute("aria-label", `Прослухати ${w.word}`);
-  summary.append(speakBtn, el("span", "word-due", w.next_review), el("span", "word-expand-icon", "▾"));
+  summary.append(speakBtn, el("span", "word-due", w.next_review), (() => { const c = el("span", "word-expand-icon"); c.append(iconEl("chevron-down")); return c; })());
 
   const detail = el("div", "word-detail");
   const meta = [w.transcription, w.part_of_speech].filter(Boolean).join(" · ");
@@ -619,7 +620,7 @@ function buildWordItem(w) {
     el(
       "div",
       "word-stats",
-      `EN→UA: ease ${w.ease_factor.toFixed(2)}, помилок ${w.lapses} · UA→EN: ease ${w.reverse_ease_factor.toFixed(2)}, помилок ${w.reverse_lapses}`
+      `EN–UA: ease ${w.ease_factor.toFixed(2)}, помилок ${w.lapses}. UA–EN: ease ${w.reverse_ease_factor.toFixed(2)}, помилок ${w.reverse_lapses}.`
     )
   );
   const actions = el("div", "word-actions");
@@ -696,7 +697,7 @@ async function refreshAfterEdit(updated) {
 $("edit-save").addEventListener("click", async () => {
   const body = {};
   for (const [key, id] of Object.entries(FIELDS)) body[key] = $(id).value.trim() || null;
-  if (!body.word || !body.translation) return editFail("Слово та переклад обов'язкові.");
+  if (!body.word || !body.translation) return editFail("Слово й переклад обов'язкові.");
   const btn = $("edit-save");
   btn.disabled = true;
   btn.textContent = "Збереження…";
@@ -710,9 +711,9 @@ $("edit-save").addEventListener("click", async () => {
       closeEditSheet();
       await refreshAfterEdit(editing ? updated : null);
     } else if (res.status === 409) editFail("Таке слово вже є.");
-    else editFail("Не вдалося зберегти. Спробуйте ще раз.");
+    else editFail("Не вдалося зберегти.");
   } catch {
-    editFail("Не вдалося зберегти. Спробуйте ще раз.");
+    editFail("Не вдалося зберегти.");
   } finally {
     btn.disabled = false;
     btn.textContent = "Зберегти";

@@ -1,5 +1,6 @@
 // Multiple-choice quiz: EN → UA, UA → EN and listen → EN, looping over the given cards
 // (reshuffled every round) until stopped. Practice only: never touches the SM-2 schedule.
+import { iconEl } from "./icons.js";
 import { canSpeak, getSettings, speak, speakCard, stopSpeaking } from "./speech.js";
 
 const OPTION_COUNT = 4;
@@ -134,7 +135,7 @@ export function createQuiz(root, hooks) {
         questionsThisRound++;
         previousKind = question.kind;
         current = { question, answered: false };
-        hooks.onProgress(`Коло ${round} · ${index + 1} / ${queue.length}`);
+        hooks.onProgress(`Коло ${round}, ${index + 1} з ${queue.length}`);
         render();
         return;
       }
@@ -153,18 +154,18 @@ export function createQuiz(root, hooks) {
       );
     } else if (kind === "ua2en") {
       prompt.append(
-        h("p", { class: "quiz-label", text: "Як це буде англійською?" }),
+        h("p", { class: "quiz-label", text: "Як це англійською?" }),
         h("p", { class: "quiz-meaning", text: card.translation })
       );
     } else {
       prompt.append(
-        h("p", { class: "quiz-label", text: "Послухайте й оберіть слово" }),
-        h("button", {
-          class: "btn btn-secondary quiz-play",
-          type: "button",
-          text: "🔊 Відтворити",
-          onclick: () => speak(card.word),
-        })
+        h("p", { class: "quiz-label", text: "Послухай і вибери слово" }),
+        h(
+          "button",
+          { class: "btn btn-secondary quiz-play", type: "button", onclick: () => speak(card.word) },
+          iconEl("speaker"),
+          "Відтворити"
+        )
       );
     }
 
@@ -209,14 +210,14 @@ export function createQuiz(root, hooks) {
     const nextBtn = h("button", {
       class: "btn btn-primary quiz-next",
       type: "button",
-      text: "Далі →",
+      text: "Далі",
       onclick: () => {
         index++;
         next();
       },
     });
     root.querySelector(".quiz-result").replaceChildren(
-      h("p", { class: `quiz-verdict ${correct ? "ok" : "no"}`, text: correct ? "✓ Правильно" : "✗ Не зовсім" }),
+      h("p", { class: `quiz-verdict ${correct ? "ok" : "no"}`, text: correct ? "Правильно" : "Неправильно" }),
       h("span", { class: "quiz-word quiz-word-sm", lang: "en", text: card.word }),
       card.transcription ? h("p", { class: "card-ipa", text: card.transcription }) : null,
       h("p", { class: "quiz-english", text: card.translation }),
@@ -224,12 +225,12 @@ export function createQuiz(root, hooks) {
       h(
         "div",
         { class: "quiz-actions" },
-        h("button", {
-          class: "btn btn-secondary",
-          type: "button",
-          text: "🔊 Прослухати",
-          onclick: () => speakCard(card),
-        }),
+        h(
+          "button",
+          { class: "btn btn-secondary", type: "button", onclick: () => speakCard(card) },
+          iconEl("speaker"),
+          "Прослухати"
+        ),
         nextBtn
       )
     );
