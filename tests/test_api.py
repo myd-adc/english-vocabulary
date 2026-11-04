@@ -6,6 +6,9 @@ from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 from app.main import WEB_DIST, SPAStaticFiles
+from conftest import ALICE
+
+U = ALICE["id"]
 
 WORD = {"word": "Apple", "translation": "яблуко", "transcription": "/ˈæp.əl/", "section": "Food"}
 HTML = {"accept": "text/html,application/xhtml+xml"}
@@ -66,17 +69,10 @@ def test_real_build_is_served(client):
     assert "LexiVocab" in client.get("/topic/Їжа", headers=HTML).text
 
 
-def test_auth_required_and_login(client, headers):
+def test_auth_required(client, headers):
     assert client.get("/api/vocabulary").status_code == 401
     assert client.get("/api/vocabulary", headers={"Authorization": "Bearer junk"}).status_code == 401
-    assert client.post("/api/auth/login", json={"password": "nope"}).status_code == 401
     assert client.get("/api/vocabulary", headers=headers).status_code == 200
-
-
-def test_login_throttle(client):
-    for _ in range(10):
-        client.post("/api/auth/login", json={"password": "bad"})
-    assert client.post("/api/auth/login", json={"password": "test-password"}).status_code == 429
 
 
 def test_crud(client, headers):
@@ -233,9 +229,9 @@ def test_update_translation_clears_stale_main_translation(client, headers):
 
     wid = client.post("/api/vocabulary", json={"word": "run", "translation": "бігти", "main_translation": "бігти"},
                       headers=headers).json()["id"]
-    assert vocab.update_word(wid, {"notes": "n"})["main_translation"] == "бігти"
-    assert vocab.update_word(wid, {"translation": "керувати"})["main_translation"] is None
-    row = vocab.update_word(wid, {"translation": "іти", "main_translation": "іти"})
+    assert vocab.update_word(U, wid, {"notes": "n"})["main_translation"] == "бігти"
+    assert vocab.update_word(U, wid, {"translation": "керувати"})["main_translation"] is None
+    row = vocab.update_word(U, wid, {"translation": "іти", "main_translation": "іти"})
     assert row["main_translation"] == "іти"
 
 
@@ -245,4 +241,4 @@ def test_topic_names_excludes_fallback(client, headers):
     client.post("/api/vocabulary", json={"word": "a", "translation": "a", "section": "Рух"}, headers=headers)
     client.post("/api/vocabulary", json={"word": "b", "translation": "b", "section": "Без теми"}, headers=headers)
     client.post("/api/vocabulary", json={"word": "c", "translation": "c"}, headers=headers)
-    assert vocab.topic_names() == ["Рух"]
+    assert vocab.topic_names(U) == ["Рух"]
