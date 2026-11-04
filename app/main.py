@@ -1,6 +1,7 @@
 """Single ASGI app: MCP (+OAuth) at /mcp and /.well-known, REST API at /api, PWA at /."""
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from app import config, db
+from app import config, db, translator
 from app.api import api
 from app.mcp_tools import mcp
 
@@ -44,6 +45,7 @@ _mcp_lifespan = app.router.lifespan_context
 @asynccontextmanager
 async def lifespan(a):
     await anyio.to_thread.run_sync(db.init_db)  # idempotent CREATE TABLE IF NOT EXISTS
+    threading.Thread(target=translator.warm_up, daemon=True).start()  # don't delay startup
     try:
         async with _mcp_lifespan(a):
             yield

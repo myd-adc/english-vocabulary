@@ -92,6 +92,17 @@ def _client() -> openai.OpenAI:
     return _cached_client
 
 
+def warm_up() -> None:
+    """Open the HTTPS connection to the LLM ahead of the first word (startup / wake-up),
+    so the user's first translation doesn't pay for connection setup. Never raises."""
+    if not enabled():
+        return
+    try:
+        _client().models.list()
+    except Exception as e:  # noqa: BLE001 - best effort only
+        log.info("translator warm-up skipped: %s", type(e).__name__)
+
+
 def _parse(system: str, user: str, output_format: type[BaseModel]):
     if not enabled():
         raise TranslationUnavailable("LLM_API_KEY is not set")
