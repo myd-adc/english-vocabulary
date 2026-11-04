@@ -8,9 +8,12 @@ from app.models import (
     BulkResponse,
     Direction,
     LoginRequest,
+    QuickAddRequest,
+    QuickAddResponse,
     ReviewRequest,
     SectionResponse,
     StatsResponse,
+    TopicRename,
     WordCreate,
     WordListResponse,
     WordResponse,
@@ -66,26 +69,50 @@ def bulk_add(payload: BulkCreate):
     return {**result, "skipped_count": len(result["skipped"])}
 
 
+@protected.post("/vocabulary/quick", response_model=QuickAddResponse)
+def quick_add(payload: QuickAddRequest):
+    try:
+        return vocab.quick_add(payload.text)
+    except vocab.ValidationError as err:
+        raise _bad_request(err) from err
+
+
+@protected.patch("/topics/{name}")
+def rename_topic(name: str, payload: TopicRename):
+    try:
+        updated = vocab.rename_topic(name, payload.name)
+    except vocab.ValidationError as err:
+        raise _bad_request(err) from err
+    if updated == 0:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    return {"updated": updated}
+
+
+@protected.post("/topics/backfill")
+def backfill_topics():
+    return vocab.backfill_topics()
+
+
 @protected.get("/vocabulary", response_model=WordListResponse)
 def list_vocabulary(
-    section: str | None = Query(None),
+    section: list[str] | None = Query(None, description="Repeat to filter by several topics"),
     due: Direction | None = Query(None, description="Only words due in this direction"),
     difficult: bool = Query(False),
     q: str | None = Query(None, description="Search in word / translation"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
-    return vocab.list_words(section=section, due_direction=due, difficult=difficult, search=q,
+    return vocab.list_words(sections=section, due_direction=due, difficult=difficult, search=q,
                             limit=limit, offset=offset)
 
 
 @protected.get("/vocabulary/due", response_model=list[WordResponse])
 def due_vocabulary(
     direction: Direction = Query("forward"),
-    section: str | None = Query(None),
+    section: list[str] | None = Query(None, description="Repeat to filter by several topics"),
     created_after: str | None = Query(None, description="YYYY-MM-DD"),
 ):
-    return vocab.get_due(direction, section, created_after)
+    return vocab.get_due(direction, created_after=created_after, sections=section)
 
 
 @protected.patch("/vocabulary/{word_id}/review", response_model=WordResponse)

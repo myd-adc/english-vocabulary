@@ -112,10 +112,13 @@ def _filters(
     cond: list[str] = []
     params: list = []
     if sections is not None:
-        cond.append("section = ANY(%s)")
+        # the fallback topic also covers words without a section
+        cond.append("(section = ANY(%s) OR section IS NULL)" if FALLBACK_TOPIC in sections
+                    else "section = ANY(%s)")
         params.append(list(sections))
     if section is not None:
-        cond.append("section = %s")
+        cond.append("(section = %s OR section IS NULL)" if section == FALLBACK_TOPIC
+                    else "section = %s")
         params.append(section)
     if search:
         cond.append("(word ILIKE %s OR translation ILIKE %s)")
@@ -306,9 +309,8 @@ def rename_topic(old: str, new: str) -> int:
     if not new:
         raise ValidationError("New topic name cannot be empty")
     with connection() as conn:
-        return conn.execute(
-            "UPDATE words SET section = %s WHERE section = %s", [new, old]
-        ).rowcount
+        where = "section = %s OR section IS NULL" if old == FALLBACK_TOPIC else "section = %s"
+        return conn.execute(f"UPDATE words SET section = %s WHERE {where}", [new, old]).rowcount
 
 
 def backfill_topics(limit: int = 200) -> dict:
@@ -363,16 +365,19 @@ def review_word(word_id: int, quality: int, direction: str = "forward") -> dict 
 
 
 def list_sections() -> list[dict]:
-    """Sections with word counts and due counts (forward / reverse). Unsectioned words are omitted."""
+    """Sections with word counts and due counts (forward / reverse).
+
+    Words without a section are listed under FALLBACK_TOPIC.
+    """
     t = today()
     with connection() as conn:
         rows = conn.execute(
-            """SELECT section AS name, COUNT(*) AS words,
+            """SELECT name, COUNT(*) AS words,
                       COUNT(*) FILTER (WHERE next_review <= %s) AS due,
                       COUNT(*) FILTER (WHERE reverse_next_review <= %s) AS due_reverse
-               FROM words WHERE section IS NOT NULL
-               GROUP BY section ORDER BY MAX(created_at) DESC""",
-            [t, t],
+               FROM (SELECT COALESCE(section, %s) AS name, * FROM words) w
+               GROUP BY name ORDER BY MAX(created_at) DESC""",
+            [t, t, FALLBACK_TOPIC],
         ).fetchall()
     return rows
 

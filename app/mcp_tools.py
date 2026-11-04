@@ -8,7 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from app import auth, config, db, vocab
+from app import auth, config, db, translator, vocab
 from app.oauth_provider import VocabularyOAuthProvider
 
 
@@ -16,13 +16,13 @@ class WordInput(TypedDict, total=False):
     """One English word to save."""
 
     word: Required[str]  # English word or phrase
-    translation: Required[str]  # Ukrainian translation
+    translation: str  # Ukrainian translation; omit to translate automatically
     transcription: str  # IPA, e.g. /ˈæp.əl/
     part_of_speech: str  # e.g. noun, verb, adjective
     example: str  # English example sentence
     example_translation: str  # Ukrainian translation of the example
     notes: str
-    section: str  # per-word section; overrides section_name
+    section: str  # per-word topic; overrides section_name
 
 
 oauth_provider = VocabularyOAuthProvider(secret=config.MCP_SECRET, issuer_url=config.ISSUER_URL)
@@ -49,7 +49,7 @@ def _fmt(w: dict) -> str:
     )
     line = f"- [{w['id']}] {w['word']}" + (f" ({extra})" if extra else "") + f" — {w['translation']}"
     if w.get("section"):
-        line += f" | section: {w['section']}"
+        line += f" | topic: {w['section']}"
     line += (
         f" | EN→UA: ease {w['ease_factor']:.2f}, lapses {w['lapses']}, reps {w['repetitions']}, due {w['next_review']}"
         f" | UA→EN: ease {w['reverse_ease_factor']:.2f}, lapses {w['reverse_lapses']}, due {w['reverse_next_review']}"
@@ -60,31 +60,83 @@ def _fmt(w: dict) -> str:
 @mcp.tool(
     name="add_words",
     description=(
-        "Save English words with Ukrainian translations to the user's spaced-repetition deck "
-        "(max 50 per call). Use when the user asks to save words from the conversation. "
-        "Required per word: 'word' (English) and 'translation' (Ukrainian). Optional: "
-        "'transcription' (IPA), 'part_of_speech', 'example' (English sentence), "
-        "'example_translation' (Ukrainian), 'notes', 'section'. Pass section_name to put every "
-        "word of the batch in one section (e.g. 'Travel'). Duplicates are skipped "
-        "case-insensitively and reported."
+        "Save English words to the user's spaced-repetition deck (max 50 per call). Use when the "
+        "user asks to save words from the conversation. Only 'word' (English) is required: when "
+        "'translation' is omitted, the word is translated automatically (lemma, Ukrainian "
+        "translation grouped by part of speech) and given a topic. Optional: 'translation' "
+        "(Ukrainian), 'transcription' (IPA), 'part_of_speech', 'example' (English sentence), "
+        "'example_translation' (Ukrainian), 'notes', 'section' (the word's topic). Pass "
+        "section_name to put every word of the batch in one topic (e.g. 'Travel'); without it, "
+        "words that come with a translation get a topic chosen automatically. Duplicates are "
+        "skipped case-insensitively and reported."
     ),
 )
 async def add_words(words: list[WordInput], section_name: str | None = None) -> str:
+    def run() -> str:
+        auto = [w for w in words if not (w.get("translation") or "").strip()]
+        manual = [w for w in words if (w.get("translation") or "").strip()]
+        if not words:
+            raise vocab.ValidationError("No words given")
+        if len(words) > vocab.MAX_BULK:
+            raise vocab.ValidationError(f"At most {vocab.MAX_BULK} words per call")
+        for w in auto:
+            if not (w.get("word") or "").strip():
+                raise vocab.ValidationError("'word' is required")
+
+        items = []
+        for w in manual:
+            topic = w.get("section") or section_name
+            if not topic and (w.get("word") or "").strip() and not vocab.find_by_word(w["word"]):
+                try:
+                    topic = translator.suggest_topic(
+                        w["word"].strip(), w["translation"].strip(), vocab.topic_names()
+                    ).strip()
+                except translator.TranslationUnavailable:
+                    topic = None
+                topic = topic or vocab.FALLBACK_TOPIC
+            items.append({**w, "section": topic})
+        saved, skipped = [], []
+        if items:
+            result = vocab.add_words(items)
+            saved += [r["word"] for r in result["inserted"]]
+            skipped += result["skipped"]
+
+        existing, not_english, unavailable = [], [], []
+        for w in auto:
+            res = vocab.quick_add(w["word"])
+            if res["status"] == "created":
+                saved.append(res["word"]["word"])
+            elif res["status"] == "exists":
+                existing.append(res["word"]["word"])
+            elif res["status"] == "not_english":
+                not_english.append(res["input"])
+            else:
+                unavailable.append(res["input"])
+
+        msg = f"Saved {len(saved)} words."
+        if saved:
+            msg += f" ({', '.join(saved)})"
+        if skipped:
+            msg += f" Skipped {len(skipped)} duplicates: {', '.join(skipped)}."
+        if existing:
+            msg += f" Already saved: {', '.join(existing)}."
+        if not_english:
+            msg += f" Skipped, not English: {', '.join(not_english)}."
+        if unavailable:
+            msg += (f" Skipped, translation unavailable: {', '.join(unavailable)}."
+                    " Retry later or provide a translation.")
+        return msg
+
     try:
-        items = [{**w, "section": w.get("section") or section_name} for w in words]
-        result = await asyncio.to_thread(vocab.add_words, items)
+        return await asyncio.to_thread(run)
     except vocab.ValidationError as e:
         return f"Failed to save words: {e}"
-    msg = f"Saved {len(result['inserted'])} words."
-    if result["skipped"]:
-        msg += f" Skipped {len(result['skipped'])} duplicates: {', '.join(result['skipped'])}."
-    return msg
 
 
 @mcp.tool(
     name="list_words",
     description=(
-        "List saved words with their SM-2 stats. Optional filters: section_name (exact), "
+        "List saved words with their SM-2 stats. Optional filters: section_name (the topic name, exact), "
         "only_due (due for review today in either direction), only_difficult (weak words: low "
         "ease factor or repeated lapses), search (substring of word/translation). Each line shows "
         "ease factor, lapses, repetitions and next review for both directions (EN→UA and UA→EN), "
@@ -126,7 +178,7 @@ async def list_words(
     description=(
         "Edit a saved word. Identify it by id (from list_words) or by its English spelling in "
         "'word'. Provide only the fields to change: new_word, translation, transcription, "
-        "part_of_speech, example, example_translation, notes, section. An empty string clears an "
+        "part_of_speech, example, example_translation, notes, section (the topic). An empty string clears an "
         "optional field. Review progress is kept."
     ),
 )
@@ -188,12 +240,12 @@ async def delete_word(id: int | None = None, word: str | None = None) -> str:
 
 @mcp.tool(
     name="list_sections",
-    description="List the user's sections (named groups of words) with word counts and how many words are due today.",
+    description="List the user's topics (named groups of words) with word counts and how many words are due today. Words without a topic appear as 'Без теми'.",
 )
 async def list_sections() -> str:
     sections = await asyncio.to_thread(vocab.list_sections)
     if not sections:
-        return "No sections yet."
+        return "No topics yet."
     return "\n".join(
         f"- {s['name']}: {s['words']} words, due today {s['due']} (EN→UA) / {s['due_reverse']} (UA→EN)"
         for s in sections
@@ -204,14 +256,14 @@ async def list_sections() -> str:
     name="get_stats",
     description=(
         "Overall statistics: total words, words due today (per direction), learned words "
-        "(3+ successful reviews in a row EN→UA), difficult words and number of sections."
+        "(3+ successful reviews in a row EN→UA), difficult words and number of topics."
     ),
 )
 async def get_stats() -> str:
     s = await asyncio.to_thread(vocab.get_stats)
     return (
         f"Total: {s['total']}; due today: {s['due_today']} (EN→UA), {s['due_today_reverse']} (UA→EN); "
-        f"learned: {s['learned']}; difficult: {s['difficult']}; sections: {s['sections']}."
+        f"learned: {s['learned']}; difficult: {s['difficult']}; topics: {s['sections']}."
     )
 
 

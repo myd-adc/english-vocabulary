@@ -106,3 +106,7 @@ class QuickAddResponse(BaseModel):
     status: str
     input: str
     word: WordResponse | None = None
+
+
+class TopicRename(BaseModel):
+    name: str

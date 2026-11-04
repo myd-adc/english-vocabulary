@@ -126,3 +126,40 @@ def test_full_flow_and_tools(client):
     r = client.post("/mcp", headers={**MCP_HEADERS, "Authorization": f"Bearer {access}"},
                     json={"jsonrpc": "2.0", "id": 9, "method": "tools/list"})
     assert r.status_code == 401
+
+
+def test_add_words_auto_translation_and_topics(client, monkeypatch):
+    import asyncio
+
+    from app import mcp_tools, translator
+    from app.translator import PosMeanings, Translation, TranslationUnavailable
+
+    def fake_translate(text, existing_topics):
+        if text == "borsch":
+            return Translation(is_english=False, lemma=text, parts=[], main="", topic="")
+        if text == "down":
+            raise TranslationUnavailable("down")
+        return Translation(is_english=True, lemma=text, parts=[PosMeanings(pos="дієслово", meanings=["бігти"])],
+                           main="бігти", topic="Рух")
+
+    def fake_topic(word, translation, existing):
+        if word == "fail":
+            raise TranslationUnavailable("down")
+        return "Їжа"
+
+    monkeypatch.setattr(translator, "translate", fake_translate)
+    monkeypatch.setattr(translator, "suggest_topic", fake_topic)
+
+    out = asyncio.run(mcp_tools.add_words([
+        {"word": "run"}, {"word": "run"}, {"word": "borsch"}, {"word": "down"},
+        {"word": "apple", "translation": "яблуко"},
+        {"word": "fail", "translation": "провал"},
+        {"word": "pear", "translation": "груша", "section": "Fruit"},
+    ]))
+    assert "Saved 4" in out and "run" in out
+    assert "already" in out.lower() and "not English: borsch" in out and "unavailable: down" in out
+    from app import vocab
+    assert vocab.find_by_word("run")["section"] == "Рух"
+    assert vocab.find_by_word("apple")["section"] == "Їжа"
+    assert vocab.find_by_word("fail")["section"] == "Без теми"
+    assert vocab.find_by_word("pear")["section"] == "Fruit"

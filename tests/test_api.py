@@ -76,7 +76,7 @@ def test_sections_stats_difficult(client, headers):
     for w in ("a", "b", "c"):
         client.post("/api/vocabulary", json={"word": w, "translation": w, "section": "S1" if w != "c" else None}, headers=headers)
     s = client.get("/api/sections", headers=headers).json()
-    assert s == [{"name": "S1", "words": 2, "due": 2, "due_reverse": 2}]
+    assert {x["name"]: x["words"] for x in s} == {"S1": 2, "Без теми": 1}
     for _ in range(2):
         client.patch("/api/vocabulary/1/review", json={"quality": 0}, headers=headers)
     stats = client.get("/api/stats", headers=headers).json()
@@ -93,3 +93,70 @@ def test_next_review_is_in_future_after_pass(client, headers):
     r = client.patch(f"/api/vocabulary/{wid}/review", json={"quality": 4}, headers=headers).json()
     assert r["interval"] == 6
     assert date.fromisoformat(r["next_review"]) - date.today() <= timedelta(days=7)
+
+
+def _fake_translate(monkeypatch, topic="Рух"):
+    from app import translator
+    from app.translator import PosMeanings, Translation
+
+    def fake(text, existing_topics):
+        return Translation(is_english=True, lemma=text, parts=[PosMeanings(pos="дієслово", meanings=["бігти"])],
+                           main="бігти", topic=topic)
+
+    monkeypatch.setattr(translator, "translate", fake)
+
+
+def test_quick_endpoint_statuses(client, headers, monkeypatch):
+    _fake_translate(monkeypatch)
+    r = client.post("/api/vocabulary/quick", json={"text": "run"}, headers=headers)
+    assert r.status_code == 200 and r.json()["status"] == "created"
+    assert r.json()["word"]["section"] == "Рух"
+    r = client.post("/api/vocabulary/quick", json={"text": "run"}, headers=headers)
+    assert r.status_code == 200 and r.json()["status"] == "exists"
+    assert client.post("/api/vocabulary/quick", json={"text": "  "}, headers=headers).status_code == 422
+
+
+def test_quick_endpoint_requires_auth(client):
+    assert client.post("/api/vocabulary/quick", json={"text": "run"}).status_code == 401
+
+
+def test_rename_topic_endpoint(client, headers):
+    client.post("/api/vocabulary", json={"word": "a", "translation": "а", "section": "Old"}, headers=headers)
+    r = client.patch("/api/topics/Old", json={"name": "New"}, headers=headers)
+    assert r.status_code == 200 and r.json() == {"updated": 1}
+    assert client.patch("/api/topics/Nope", json={"name": "X"}, headers=headers).status_code == 404
+    assert [s["name"] for s in client.get("/api/sections", headers=headers).json()] == ["New"]
+
+
+def test_rename_untopiced_tile(client, headers):
+    client.post("/api/vocabulary", json={"word": "a", "translation": "а"}, headers=headers)
+    r = client.patch("/api/topics/Без теми", json={"name": "Різне"}, headers=headers)
+    assert r.json() == {"updated": 1}
+
+
+def test_backfill_endpoint(client, headers, monkeypatch):
+    from app import translator
+    monkeypatch.setattr(translator, "suggest_topic", lambda w, t, ex: "Їжа")
+    client.post("/api/vocabulary", json={"word": "a", "translation": "а"}, headers=headers)
+    r = client.post("/api/topics/backfill", headers=headers)
+    assert r.status_code == 200 and r.json() == {"updated": 1, "remaining": 0}
+
+
+def test_due_multiple_sections(client, headers):
+    for w, sec in (("a", "A"), ("b", "B"), ("c", "C")):
+        client.post("/api/vocabulary", json={"word": w, "translation": w, "section": sec}, headers=headers)
+    due = client.get("/api/vocabulary/due?section=A&section=B", headers=headers).json()
+    assert sorted(w["word"] for w in due) == ["a", "b"]
+    lst = client.get("/api/vocabulary?section=A&section=B", headers=headers).json()
+    assert lst["total"] == 2
+    assert client.get("/api/vocabulary?section=C", headers=headers).json()["total"] == 1
+
+
+def test_sections_include_untopiced(client, headers):
+    client.post("/api/vocabulary", json={"word": "a", "translation": "а"}, headers=headers)
+    client.post("/api/vocabulary", json={"word": "b", "translation": "б", "section": "Без теми"}, headers=headers)
+    s = client.get("/api/sections", headers=headers).json()
+    assert s == [{"name": "Без теми", "words": 2, "due": 2, "due_reverse": 2}]
+    got = client.get("/api/vocabulary?section=Без теми", headers=headers).json()
+    assert got["total"] == 2
+    assert client.get("/api/vocabulary/due?section=Без теми", headers=headers).json().__len__() == 2
