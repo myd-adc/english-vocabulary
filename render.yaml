@@ -18,5 +18,7 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.13.1
       - key: APP_TIMEZONE
         value: Europe/Kyiv
