@@ -36,3 +36,5 @@ LLM_BASE_URL = os.getenv(
     "LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"
 ).strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-flash-lite-latest").strip()
+# Optional, for reasoning models (e.g. Groq's openai/gpt-oss-120b): "low" is faster and uses fewer tokens.
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "").strip()

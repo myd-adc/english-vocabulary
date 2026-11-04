@@ -154,3 +154,13 @@ def test_parse_failure_is_logged(monkeypatch, caplog):
     with caplog.at_level("WARNING", logger="app.translator"), pytest.raises(TranslationUnavailable):
         translate("x", [])
     assert "refusal" in caplog.text
+
+
+def test_reasoning_effort_passed_only_when_set(monkeypatch):
+    c = _use(monkeypatch, FakeClient(_ok(_tr())))
+    monkeypatch.setattr(config, "LLM_REASONING_EFFORT", "")
+    translate("run", [])
+    assert "reasoning_effort" not in c.calls[-1]
+    monkeypatch.setattr(config, "LLM_REASONING_EFFORT", "low")
+    translate("run", [])
+    assert c.calls[-1]["reasoning_effort"] == "low"

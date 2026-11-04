@@ -100,6 +100,7 @@ def _parse(system: str, user: str, output_format: type[BaseModel]):
             model=config.LLM_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             response_format=output_format,
+            **({"reasoning_effort": config.LLM_REASONING_EFFORT} if config.LLM_REASONING_EFFORT else {}),
         )
     except (openai.OpenAIError, pydantic.ValidationError, ValueError) as e:
         log.warning("translator call failed: %s: %s", type(e).__name__, e)

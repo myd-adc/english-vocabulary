@@ -66,6 +66,9 @@ git push -u origin main
 | `LLM_API_KEY` | ні | Ключ для автоперекладу, нормалізації й тем (за замовчуванням Google Gemini, безкоштовний тариф ~15 запитів/хв). Без нього переклад вводиться вручну |
 | `LLM_BASE_URL` | ні | Будь-який OpenAI-сумісний API; за замовчуванням `https://generativelanguage.googleapis.com/v1beta/openai/` (Gemini). Groq, Mistral, OpenRouter, Anthropic теж підходять |
 | `LLM_MODEL` | ні | Модель, за замовчуванням `gemini-flash-lite-latest` |
+| `LLM_REASONING_EFFORT` | ні | Для моделей із міркуванням, напр. `low` для `openai/gpt-oss-120b`. Швидше й менше токенів |
+
+Безкоштовна й швидка альтернатива Gemini: [Groq](https://console.groq.com) з відкритою моделлю: `LLM_BASE_URL=https://api.groq.com/openai/v1`, `LLM_MODEL=openai/gpt-oss-120b`, `LLM_REASONING_EFFORT=low`.
 | `JWT_SECRET` | ні | Ключ JWT для PWA; за замовчуванням `MCP_SECRET` (Render генерує окремий) |
 | `PORT` | ні | Порт (Render виставляє сам; локально 8000) |
 | `APP_TIMEZONE` | ні | Часовий пояс для «на сьогодні», за замовчуванням `Europe/Kyiv` |
