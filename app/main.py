@@ -1,4 +1,4 @@
-"""Single ASGI app: MCP (+OAuth) at /mcp and /.well-known, REST API at /api, PWA at /."""
+"""Single ASGI app: MCP (+OAuth) at /mcp and /.well-known, REST API at /api, React PWA (web/dist) at /."""
 
 import logging
 import threading
@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import anyio
+from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
@@ -23,17 +24,38 @@ if not _app_log.handlers:
     _app_log.setLevel(logging.INFO)
     _app_log.propagate = False
 
-PWA_DIR = Path(__file__).resolve().parent.parent / "pwa"
+WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+IMMUTABLE = "public, max-age=31536000, immutable"
 
 
-class PWAStaticFiles(StaticFiles):
-    """PWA files with `Cache-Control: no-cache`: the browser may keep them but must revalidate
-    (cheap 304 via ETag), so a deploy never pairs new HTML with a stale style.css or app.js."""
+class SPAStaticFiles(StaticFiles):
+    """Serves the built React app.
 
-    def file_response(self, *args, **kwargs):
-        response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "no-cache"
+    - Vite's hashed files under /assets/ are cached for a year; everything else (index.html,
+      sw.js, manifest.webmanifest, icons) is `no-cache`: the browser may keep it but must
+      revalidate (cheap 304 via ETag), so a deploy never pairs new HTML with stale code.
+    - Unknown paths that a browser navigates to (Accept: text/html) get index.html, so client-side
+      routes such as /topic/Їжа survive a reload. Missing files (an old /assets/x.js) stay 404.
+    """
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404 or path.startswith("assets/"):
+                raise
+            accept = dict(scope["headers"]).get(b"accept", b"").decode("latin-1")
+            if "text/html" not in accept:
+                raise
+            return await super().get_response("index.html", scope)
+
+    def file_response(self, full_path, *args, **kwargs):
+        response = super().file_response(full_path, *args, **kwargs)
+        in_assets = Path(full_path).parent.name == "assets"
+        response.headers["Cache-Control"] = IMMUTABLE if in_assets else "no-cache"
         return response
+
 
 # FastMCP builds a Starlette app that already carries the OAuth routes, the bearer-auth
 # middleware and the MCP session manager lifespan; we extend it instead of nesting it.
@@ -74,4 +96,7 @@ if not any(getattr(r, "path", "") == "/.well-known/oauth-protected-resource" for
 
 app.router.routes.append(Mount("/api", app=api))
 # html=True serves index.html at "/". Must be last: it matches everything else.
-app.router.routes.append(Mount("/", app=PWAStaticFiles(directory=PWA_DIR, html=True), name="pwa"))
+# check_dir=False: the server (and the tests) start without a built web/dist; "/" is then a 404.
+app.router.routes.append(
+    Mount("/", app=SPAStaticFiles(directory=WEB_DIST, html=True, check_dir=False), name="web")
+)

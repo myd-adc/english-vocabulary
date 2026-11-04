@@ -17,7 +17,7 @@ def make(size: int, path: str) -> None:
     img.save(path)
 
 
-make(512, "pwa/icon-512.png")
-make(192, "pwa/icon-192.png")
-make(180, "pwa/apple-touch-icon.png")
-make(64, "pwa/favicon.png")
+make(512, "web/public/icon-512.png")
+make(192, "web/public/icon-192.png")
+make(180, "web/public/apple-touch-icon.png")
+make(64, "web/public/favicon.png")

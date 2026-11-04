@@ -1,19 +1,69 @@
 from datetime import date, timedelta
 
+import pytest
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.testclient import TestClient
+
+from app.main import WEB_DIST, SPAStaticFiles
+
 WORD = {"word": "Apple", "translation": "яблуко", "transcription": "/ˈæp.əl/", "section": "Food"}
+HTML = {"accept": "text/html,application/xhtml+xml"}
 
 
-def test_health_and_static(client):
+@pytest.fixture()
+def spa(tmp_path):
+    """The static file server on a tiny fake build, so tests never need Node or web/dist."""
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text("<!doctype html><title>LexiVocab</title>", encoding="utf-8")
+    (tmp_path / "assets" / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
+    (tmp_path / "sw.js").write_text("self.skipWaiting()", encoding="utf-8")
+    (tmp_path / "manifest.webmanifest").write_text('{"short_name": "LexiVocab"}', encoding="utf-8")
+    app = Starlette(routes=[Mount("/", app=SPAStaticFiles(directory=tmp_path, html=True))])
+    return TestClient(app)
+
+
+def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200 and r.json() == {"status": "ok"}
+
+
+def test_spa_serves_index_at_root(spa):
+    r = spa.get("/")
+    assert r.status_code == 200 and "LexiVocab" in r.text
+
+
+def test_spa_shell_must_revalidate_but_hashed_assets_are_immutable(spa):
+    for path in ("/", "/index.html", "/sw.js", "/manifest.webmanifest"):
+        assert spa.get(path).headers["cache-control"] == "no-cache", path
+    cc = spa.get("/assets/index-abc123.js").headers["cache-control"]
+    assert cc == "public, max-age=31536000, immutable"
+
+
+def test_spa_fallback_serves_index_for_client_routes(spa):
+    for path in ("/topic/Їжа", "/topic", "/review", "/study"):
+        r = spa.get(path, headers=HTML)
+        assert r.status_code == 200 and "LexiVocab" in r.text, path
+        assert r.headers["cache-control"] == "no-cache"
+
+
+def test_spa_fallback_does_not_hide_missing_files(spa):
+    assert spa.get("/assets/old-hash.js", headers=HTML).status_code == 404
+    assert spa.get("/nothing.png").status_code == 404  # not a page navigation
+
+
+def test_api_paths_are_not_shadowed_by_the_spa(client):
+    assert client.get("/api/vocabulary", headers=HTML).status_code == 401
+    r = client.get("/api/does-not-exist", headers=HTML)
+    assert r.status_code == 404 and r.headers["content-type"].startswith("application/json")
+
+
+@pytest.mark.skipif(not (WEB_DIST / "index.html").exists(), reason="web/dist not built (npm --prefix web run build)")
+def test_real_build_is_served(client):
     assert "LexiVocab" in client.get("/").text
-    assert client.get("/manifest.json").json()["short_name"] == "LexiVocab"
+    assert client.get("/manifest.webmanifest").json()["short_name"] == "LexiVocab"
     assert client.get("/apple-touch-icon.png").status_code == 200
-
-
-def test_pwa_files_must_revalidate(client):
-    for path in ("/", "/style.css", "/app.js"):
-        assert client.get(path).headers["cache-control"] == "no-cache"
+    assert "LexiVocab" in client.get("/topic/Їжа", headers=HTML).text
 
 
 def test_auth_required_and_login(client, headers):

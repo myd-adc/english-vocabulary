@@ -6,7 +6,7 @@
 
 | Шлях | Що це |
 |---|---|
-| `/` | PWA (словник із темами, додавання слова, картки й квіз, озвучення en-US) |
+| `/` | PWA на React (словник із темами, додавання слова, картки й квіз, озвучення en-US), збірка `web/dist` |
 | `/api/...` | REST API для PWA (JWT після входу за `PWA_PASSWORD`) |
 | `/mcp` | MCP-сервер (streamable HTTP) + OAuth 2.1/PKCE/DCR; метадані в `/.well-known/...` |
 | `/health` | `{"status":"ok"}` (робить `SELECT 1`) — для пінгера |
@@ -88,11 +88,21 @@ TEST_DATABASE_URL=postgresql://... python -m pytest       # тести чист�
 BASE_URL=http://localhost:8000 MCP_SECRET=... python tools/smoke_test.py   # перевірка OAuth+MCP
 ```
 
+Фронтенд (React + Vite + TypeScript, потрібен Node 20+):
+```bash
+npm --prefix web ci                # один раз
+uvicorn app.main:app --env-file .env --reload   # API на :8000
+npm --prefix web run dev           # http://localhost:5173, запити /api йдуть на :8000
+npm --prefix web run typecheck     # tsc --noEmit
+npm --prefix web run build         # збірка в web/dist; її віддає FastAPI на / (Render збирає її сам)
+```
+Тести Python не потребують Node: статику перевіряють на мініатюрній збірці, а перевірка справжньої `web/dist` пропускається, якщо її немає.
+
 ## Структура
 ```
 app/        main.py (збірка ASGI), api.py (REST), vocab.py (логіка + SM-2), db.py (psycopg, схема),
             mcp_tools.py (MCP-інструменти), oauth_provider.py / oauth_store.py / oauth_templates.py, auth.py
-pwa/        index.html, app.js, quiz.js, speech.js, style.css, sw.js, manifest.json, іконки
+web/        React-застосунок: src/{api,routes,components,lib,styles}, public/ (іконки), vite.config.ts (PWA)
 tests/      pytest (API, SM-2, повний OAuth+MCP потік)
 tools/      make_icons.py, smoke_test.py
 render.yaml requirements.txt .env.example
