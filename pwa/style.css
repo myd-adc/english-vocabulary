@@ -179,6 +179,26 @@ button { -webkit-tap-highlight-color: transparent; }
 .chip-btn:hover { background: var(--fill); }
 .chip { padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--accent-soft); color: var(--accent);
   font-size: 0.8125rem; font-weight: 600; }
+/* ===== Loaders ===== */
+.skeleton { border-radius: var(--radius); background: var(--fill); position: relative; overflow: hidden; }
+.skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--fill), transparent);
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+.skeleton-tile { min-height: 84px; }
+.skeleton-row { height: 44px; margin: 0.5rem 0 0.75rem; border-radius: var(--radius-sm); }
+.spinner {
+  display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 50%;
+  border: 2px solid var(--rule); border-top-color: var(--accent); animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Any primary button marked busy shows a small spinner after its label */
+.btn[aria-busy="true"]::after {
+  content: ""; width: 0.9rem; height: 0.9rem; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
+}
 .result-pending { animation: pending-pulse 1.2s ease-in-out infinite; }
 @keyframes pending-pulse { 50% { opacity: 0.45; } }
 .result-status { font-size: 0.875rem; color: var(--text-2); }

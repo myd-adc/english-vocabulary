@@ -68,6 +68,9 @@ function showLogin() {
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("login-error").classList.add("hidden");
+  const loginBtn = e.target.querySelector("button[type=submit]");
+  loginBtn.disabled = true;
+  loginBtn.setAttribute("aria-busy", "true");
   let res;
   try {
     res = await fetch(`${API_URL}/auth/login`, {
@@ -79,6 +82,9 @@ $("login-form").addEventListener("submit", async (e) => {
     $("login-error").textContent = "Немає з'єднання з сервером.";
     $("login-error").classList.remove("hidden");
     return;
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.removeAttribute("aria-busy");
   }
   if (res.ok) {
     setToken((await res.json()).token);
@@ -134,11 +140,24 @@ let sections = [];
 const isDifficult = (w) =>
   w.ease_factor < 2.1 || w.reverse_ease_factor < 2.1 || w.lapses >= 2 || w.reverse_lapses >= 2;
 
+// ── Loading placeholders ──────────────────────────────────────────────────────
+function skeletons(n, cls) {
+  return Array.from({ length: n }, () => {
+    const d = document.createElement("div");
+    d.className = `skeleton ${cls}`;
+    d.setAttribute("aria-hidden", "true");
+    return d;
+  });
+}
+
+let sectionsLoaded = false;
+
 async function loadSections() {
   try {
     const res = await apiFetch("/sections");
     if (!res.ok) return;
     sections = await res.json();
+    sectionsLoaded = true;
     $("section-options").replaceChildren(...sections.map((s) => new Option(s.name)));
   } catch {
     // offline — keep what we have
@@ -147,6 +166,7 @@ async function loadSections() {
 
 async function loadHome() {
   showView("home");
+  if (!sectionsLoaded) $("tiles").replaceChildren(...skeletons(4, "skeleton-tile"));
   await loadSections();
   renderTiles();
 }
@@ -765,8 +785,7 @@ async function openTopic(name) {
 let topicReq = 0;
 async function renderTopic() {
   const req = ++topicReq;
-  topicList.replaceChildren();
-  $("topic-loading").classList.remove("hidden");
+  topicList.replaceChildren(...skeletons(6, "skeleton-row"));
   $("topic-empty").classList.add("hidden");
   $("topic-count").textContent = "";
   const p = new URLSearchParams({ limit: "1000" });
@@ -781,11 +800,11 @@ async function renderTopic() {
     topicWords = words;
   } catch {
     if (req !== topicReq) return;
-    $("topic-loading").classList.add("hidden");
+    topicList.replaceChildren();
     showErrorMsg(topicList, "Не вдалося завантажити слова.");
     return;
   }
-  $("topic-loading").classList.add("hidden");
+  topicList.replaceChildren();
   if (topicWords.length === 0) return void $("topic-empty").classList.remove("hidden");
   $("topic-count").textContent = pluralWords(topicWords.length);
   topicList.append(...topicWords.map(buildWordRow));
@@ -928,6 +947,7 @@ $("autoplay-toggle").addEventListener("click", () => {
 
 async function openReview(preselect) {
   syncAudioSettings();
+  reviewList.replaceChildren(...skeletons(4, "skeleton-row"));
   await loadSections();
   reviewSel = new Set(preselect ? preselect : sections.map((s) => s.name));
   renderReview();
