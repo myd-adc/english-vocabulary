@@ -983,6 +983,7 @@ function onViewportResize() {
 function openEditSheet(word, focusField = "word") {
   editing = word;
   $("edit-title").textContent = word ? "Редагувати слово" : "Нове слово";
+  $("edit-translation").placeholder = word ? "" : "Залиште порожнім — перекладу автоматично";
   for (const [key, id] of Object.entries(FIELDS)) {
     $(id).value = word ? word[key] || "" : key === "section" && section !== FALLBACK_TOPIC ? section : "";
   }
@@ -1005,8 +1006,40 @@ function closeEditSheet() {
 }
 
 function editFail(msg) {
-  $("edit-error").textContent = msg;
-  $("edit-error").classList.remove("hidden");
+  const el = $("edit-error");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+// New word without a translation: translate it automatically (same flow as the home input),
+// then apply the topic typed in the sheet, if any.
+async function saveNewAuto(body) {
+  const btn = $("edit-save");
+  btn.disabled = true;
+  btn.textContent = "Перекладаю…";
+  try {
+    const res = await apiFetch("/vocabulary/quick", { method: "POST", body: JSON.stringify({ text: body.word }) });
+    if (!res.ok) return editFail("Не вдалося додати слово.");
+    const r = await res.json();
+    if (r.status === "not_english") return editFail("Це не схоже на англійське слово.");
+    if (r.status === "unavailable") return editFail("Автопереклад зараз недоступний. Введіть переклад вручну.");
+    if (r.status === "exists") return editFail(`«${r.word.word}» уже є у словнику.`);
+    const extra = {};
+    for (const key of ["transcription", "part_of_speech", "example", "example_translation", "notes", "section"]) {
+      if (body[key]) extra[key] = body[key];
+    }
+    if (Object.keys(extra).length) {
+      await apiFetch(`/vocabulary/${r.word.id}`, { method: "PATCH", body: JSON.stringify(extra) });
+    }
+    closeEditSheet();
+    await refreshAfterEdit(null);
+  } catch {
+    editFail("Не вдалося додати слово.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Зберегти";
+  }
 }
 
 // After a change, refresh whichever view is on screen.
@@ -1031,7 +1064,9 @@ async function refreshAfterEdit(updated) {
 $("edit-save").addEventListener("click", async () => {
   const body = {};
   for (const [key, id] of Object.entries(FIELDS)) body[key] = $(id).value.trim() || null;
-  if (!body.word || !body.translation) return editFail("Слово й переклад обов'язкові.");
+  if (!body.word) return editFail("Введіть слово.");
+  if (!editing && !body.translation) return saveNewAuto(body);
+  if (!body.translation) return editFail("Введіть переклад.");
   const btn = $("edit-save");
   btn.disabled = true;
   btn.textContent = "Збереження…";
