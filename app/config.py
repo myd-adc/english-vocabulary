@@ -29,5 +29,10 @@ APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Kyiv")
 
 MCP_PATH = "/mcp"
 
-# Optional: enables Claude auto-translation and topics. The app runs without it.
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+# Optional LLM for auto-translation and topics: any OpenAI-compatible chat API.
+# Without LLM_API_KEY the app works and translations are entered by hand.
+LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
+LLM_BASE_URL = os.getenv(
+    "LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"
+).strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-flash-lite-latest").strip()

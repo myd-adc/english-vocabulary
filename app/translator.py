@@ -1,9 +1,13 @@
-"""Claude-backed EN -> UA translation and topic assignment."""
+"""LLM-backed EN -> UA translation and topic assignment.
+
+Talks to any OpenAI-compatible chat API (Gemini by default; Groq, Mistral, OpenRouter or
+Anthropic work by changing LLM_BASE_URL / LLM_MODEL).
+"""
 
 import logging
 import re
 
-import anthropic
+import openai
 import pydantic
 from pydantic import BaseModel
 
@@ -11,16 +15,20 @@ from app import config
 
 log = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-5-5"
 MAX_PARTS = 3
 MAX_MEANINGS = 5
 MAX_TOPIC = 40
 MAX_LEMMA = 100
 
 TOPIC_RULES = (
-    "topic: pick one from the provided list of existing topics when one fits; otherwise create a "
-    "broad Ukrainian topic of 1-3 words, capitalised (aim for roughly 10-20 topics in total). "
-    "Use exactly 'Загальне' for general words such as 'however' or 'available'. "
+    "topic: the subject area where a learner would look for this word, as a Ukrainian noun phrase "
+    "of 1-3 words, capitalised, for example 'Їжа', 'Робота', 'Подорожі', 'Тіло і здоров\'я', "
+    "'Емоції', 'Дім', 'Природа', 'Навчання', 'Рух і спорт', 'Гроші', 'Стосунки'. "
+    "Reuse a topic from the provided list of existing topics whenever it fits; otherwise create a "
+    "new broad one (aim for roughly 10-20 topics in total). "
+    "Never use vague topics such as 'Дія', 'Предмет', 'Слово' or 'Інше'. "
+    "Use exactly 'Загальне' only for function words and very general words with no subject area, "
+    "such as 'however', 'available' or 'thing'. "
     "Never use the character '/' in a topic name."
 )
 
@@ -31,7 +39,9 @@ meanings, grouped by part of speech (part-of-speech names in Ukrainian, e.g. "д
 meanings each.
 lemma: fix typos and give the dictionary base form (ran -> run, children -> child, runing -> run), \
 but keep phrasal verbs and fixed expressions as typed; lowercase except proper nouns.
-main: the 1-2 most common Ukrainian words for it.
+main: the 1-2 most common Ukrainian words for the lemma (not for the typed form).
+Meanings must be real, natural, standard Ukrainian words; never invent words and never use
+Russian words or russianisms (for example not 'неловкий', 'являтися', 'приймати участь').
 is_english: false if the input is not English (for example Ukrainian); the other fields may then \
 be empty.
 {TOPIC_RULES}
@@ -64,32 +74,32 @@ class TranslationUnavailable(Exception):
 
 
 def enabled() -> bool:
-    return bool(config.ANTHROPIC_API_KEY)
+    return bool(config.LLM_API_KEY)
 
 
-def _client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY, timeout=15.0, max_retries=1)
+def _client() -> openai.OpenAI:
+    return openai.OpenAI(
+        api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL, timeout=15.0, max_retries=1
+    )
 
 
 def _parse(system: str, user: str, output_format: type[BaseModel]):
     if not enabled():
-        raise TranslationUnavailable("ANTHROPIC_API_KEY is not set")
+        raise TranslationUnavailable("LLM_API_KEY is not set")
     try:
-        msg = _client().messages.parse(
-            model=MODEL,
-            max_tokens=1024,
-            output_config={"effort": "low"},
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            output_format=output_format,
+        completion = _client().chat.completions.parse(
+            model=config.LLM_MODEL,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            response_format=output_format,
         )
-    except (anthropic.APIError, pydantic.ValidationError, ValueError) as e:
+    except (openai.OpenAIError, pydantic.ValidationError, ValueError) as e:
         log.warning("translator call failed: %s: %s", type(e).__name__, e)
         raise TranslationUnavailable(str(e)) from e
-    if msg.stop_reason == "refusal" or msg.parsed_output is None:
-        log.warning("translator got no usable output (stop_reason=%s)", msg.stop_reason)
+    message = completion.choices[0].message if completion.choices else None
+    if message is None or message.refusal or message.parsed is None:
+        log.warning("translator got no usable output (refusal=%s)", getattr(message, "refusal", None))
         raise TranslationUnavailable("no usable response from model")
-    return msg.parsed_output
+    return message.parsed
 
 
 def _match_topic(topic: str, existing_topics: list[str]) -> str:

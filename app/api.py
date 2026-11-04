@@ -20,7 +20,7 @@ from app.models import (
     WordUpdate,
 )
 
-BACKFILL_BATCH = 20
+BACKFILL_BATCH = 10
 
 api = FastAPI(title="LexiVocab API", docs_url="/docs", openapi_url="/openapi.json")
 

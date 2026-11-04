@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-import anthropic
 import httpx
+import openai
 import pydantic
 import pytest
 
@@ -23,7 +23,7 @@ class FakeClient:
         self.calls = []
         self._result = result
         self._exc = exc
-        self.messages = SimpleNamespace(parse=self._parse)
+        self.chat = SimpleNamespace(completions=SimpleNamespace(parse=self._parse))
 
     def _parse(self, **kw):
         self.calls.append(kw)
@@ -45,13 +45,17 @@ def _tr(**over):
 
 
 def _use(monkeypatch, client):
-    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(config, "LLM_API_KEY", "test-key")
     monkeypatch.setattr(translator, "_client", lambda: client)
     return client
 
 
-def _ok(parsed):
-    return SimpleNamespace(parsed_output=parsed, stop_reason="end_turn")
+def _ok(parsed, refusal=None):
+    message = SimpleNamespace(parsed=parsed, refusal=refusal)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+REFUSAL = _ok(None, refusal="refusal")
 
 
 def test_format_parts():
@@ -76,29 +80,30 @@ def test_topic_matches_existing_case_insensitive(monkeypatch):
 
 def test_translate_passes_model_and_topics(monkeypatch):
     c = _use(monkeypatch, FakeClient(_ok(_tr())))
-    translate("hire", ["Робота"])
+    translate("hire", ["Хобі вдома"])
     kw = c.calls[0]
-    assert kw["model"] == "claude-haiku-5-5"
-    assert kw["output_config"] == {"effort": "low"}
-    assert "Робота" in str(kw["messages"])
-    assert "Робота" not in kw["system"]
+    assert kw["model"] == config.LLM_MODEL
+    assert kw["response_format"] is Translation
+    system, user = kw["messages"]
+    assert system["role"] == "system" and "Хобі вдома" not in system["content"]
+    assert "Хобі вдома" in user["content"]
 
 
 def test_api_error_becomes_unavailable(monkeypatch):
-    err = anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
+    err = openai.APIConnectionError(request=httpx.Request("POST", "https://x"))
     _use(monkeypatch, FakeClient(exc=err))
     with pytest.raises(TranslationUnavailable):
         translate("run", [])
 
 
 def test_refusal_becomes_unavailable(monkeypatch):
-    _use(monkeypatch, FakeClient(SimpleNamespace(parsed_output=None, stop_reason="refusal")))
+    _use(monkeypatch, FakeClient(REFUSAL))
     with pytest.raises(TranslationUnavailable):
         translate("run", [])
 
 
 def test_disabled_without_key(monkeypatch):
-    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(config, "LLM_API_KEY", "")
     assert enabled() is False
     with pytest.raises(TranslationUnavailable):
         translate("run", [])
@@ -107,11 +112,11 @@ def test_disabled_without_key(monkeypatch):
 def test_suggest_topic(monkeypatch):
     c = _use(monkeypatch, FakeClient(_ok(TopicOnly(topic="їжа"))))
     assert suggest_topic("bread", "хліб", ["Їжа"]) == "Їжа"
-    assert c.calls[0]["output_format"] is TopicOnly
+    assert c.calls[0]["response_format"] is TopicOnly
 
 
 def test_suggest_topic_error(monkeypatch):
-    _use(monkeypatch, FakeClient(SimpleNamespace(parsed_output=None, stop_reason="refusal")))
+    _use(monkeypatch, FakeClient(REFUSAL))
     with pytest.raises(TranslationUnavailable):
         suggest_topic("bread", "хліб", [])
 
@@ -145,7 +150,7 @@ def test_parse_failure_is_logged(monkeypatch, caplog):
         translate("x", [])
     assert "ValueError" in caplog.text and "boom" in caplog.text and "test-key" not in caplog.text
     caplog.clear()
-    _use(monkeypatch, FakeClient(result=SimpleNamespace(parsed_output=None, stop_reason="refusal")))
+    _use(monkeypatch, FakeClient(result=REFUSAL))
     with caplog.at_level("WARNING", logger="app.translator"), pytest.raises(TranslationUnavailable):
         translate("x", [])
     assert "refusal" in caplog.text
