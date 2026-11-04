@@ -10,8 +10,11 @@ import type {
   WordUpdate,
 } from "./types";
 
-export const login = (password: string) =>
-  request<{ token: string }>("/auth/login", { method: "POST", body: { password }, anonymous: true });
+export const getMe = () => request<{ id: string; email: string }>("/me");
+
+/** Finishes a Claude connector authorization for the signed-in person; returns where to send the browser. */
+export const connectClaude = (requestId: string) =>
+  request<{ redirect_url: string }>("/connect", { method: "POST", body: { request: requestId } });
 
 export const getSections = () => request<Section[]>("/sections");
 

@@ -1,5 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSections, getWords } from "./endpoints";
+import { getMe, getSections, getWords } from "./endpoints";
+
+export const meKey = ["me"] as const;
+
+/** The signed-in person as the server sees them; 403 `no_access` here means "not on the allowlist". */
+export const useMe = () => useQuery({ queryKey: meKey, queryFn: getMe, staleTime: Infinity });
 
 export const sectionsKey = ["sections"] as const;
 export const wordsKey = ["words"] as const;

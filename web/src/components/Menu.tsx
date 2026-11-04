@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { clearToken } from "../api/client";
 import { backfillTopics } from "../api/endpoints";
-import { useInvalidateWords, useSections } from "../api/hooks";
+import { useInvalidateWords, useMe, useSections } from "../api/hooks";
+import { signOut } from "../lib/auth";
 import { pluralWords } from "../lib/plural";
 import { THEME_LABELS, useTheme } from "../lib/theme";
 import { FALLBACK_TOPIC } from "../lib/words";
@@ -9,13 +9,14 @@ import { IconButton } from "./Button";
 import { Icon } from "./Icon";
 import styles from "./Menu.module.css";
 
-/** Header "⋯" menu: sort untopiced words, switch theme, log out. */
+/** Header "⋯" menu: sort untopiced words, switch theme, sign out. */
 export function Menu({ onNote }: { onNote: (note: string) => void }) {
   const [open, setOpen] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { theme, cycle } = useTheme();
+  const email = useMe().data?.email;
   const sections = useSections().data ?? [];
   const invalidate = useInvalidateWords();
   const canBackfill = sections.some((s) => s.name === FALLBACK_TOPIC);
@@ -81,6 +82,7 @@ export function Menu({ onNote }: { onNote: (note: string) => void }) {
       </IconButton>
       {open && (
         <div id="app-menu" className={styles.menu} role="menu" aria-label="Меню" ref={menuRef}>
+          {email && <p className={styles.account}>{email}</p>}
           {canBackfill && (
             <button type="button" className={styles.item} role="menuitem" disabled={backfilling} onClick={backfill}>
               {backfilling ? "Розкладаю…" : "Розкласти слова без теми"}
@@ -89,7 +91,7 @@ export function Menu({ onNote }: { onNote: (note: string) => void }) {
           <button type="button" className={styles.item} role="menuitem" onClick={cycle}>
             {THEME_LABELS[theme]}
           </button>
-          <button type="button" className={styles.item} role="menuitem" onClick={clearToken}>
+          <button type="button" className={styles.item} role="menuitem" onClick={() => void signOut()}>
             Вийти
           </button>
         </div>
