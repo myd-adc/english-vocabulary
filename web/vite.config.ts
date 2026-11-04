@@ -12,7 +12,7 @@ export default defineConfig({
       manifest: {
         name: "LexiVocab",
         short_name: "LexiVocab",
-        description: "Англійські слова з інтервальним повторенням",
+        description: "Особистий англо-український словник з автоперекладом і темами",
         lang: "uk",
         start_url: "/",
         scope: "/",
