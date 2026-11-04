@@ -276,7 +276,11 @@ function renderQuickResult() {
   }
   quickResult.append(renderParts(word));
   const meta = mk("div", "result-meta");
-  if (word.section) meta.append(mk("span", "chip", word.section));
+  const chip = mk("button", "chip chip-btn", word.section || FALLBACK_TOPIC);
+  chip.type = "button";
+  chip.setAttribute("aria-label", `Тема: ${word.section || FALLBACK_TOPIC}. Змінити тему`);
+  chip.addEventListener("click", () => openEditSheet(quickWord, "section"));
+  meta.append(chip);
   meta.append(
     mk("span", "result-status", status === "exists" ? "Уже є у словнику" : "Збережено"),
   );
@@ -421,6 +425,35 @@ $("btn-backfill").addEventListener("click", async () => {
   note.classList.remove("hidden");
   setTimeout(() => note.classList.add("hidden"), 6000);
 });
+// ── Light / dark theme (menu) ─────────────────────────────────────────────────
+const THEME_KEY = "lexivocab-theme";
+const THEMES = ["system", "light", "dark"];
+const THEME_LABELS = { system: "Оформлення: як у системі", light: "Оформлення: світле", dark: "Оформлення: темне" };
+const themeBtn = $("btn-theme");
+
+function currentTheme() {
+  const t = document.documentElement.dataset.theme;
+  return t === "light" || t === "dark" ? t : "system";
+}
+
+function applyTheme(theme) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  try {
+    if (theme === "system") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, theme);
+  } catch (_) { /* private mode: theme just isn't remembered */ }
+  themeBtn.textContent = THEME_LABELS[theme];
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", bg));
+}
+
+themeBtn.textContent = THEME_LABELS[currentTheme()];
+themeBtn.addEventListener("click", () => {
+  const next = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
+  applyTheme(next);
+});
+
 $("btn-logout").addEventListener("click", () => {
   setMenuOpen(false);
   clearToken();
@@ -947,7 +980,7 @@ function onViewportResize() {
   }
 }
 
-function openEditSheet(word) {
+function openEditSheet(word, focusField = "word") {
   editing = word;
   $("edit-title").textContent = word ? "Редагувати слово" : "Нове слово";
   for (const [key, id] of Object.entries(FIELDS)) {
@@ -958,7 +991,9 @@ function openEditSheet(word) {
   editBackdrop.setAttribute("aria-hidden", "false");
   editBackdrop.classList.add("open");
   window.visualViewport?.addEventListener("resize", onViewportResize);
-  $("edit-word").focus();
+  const focusEl = $(FIELDS[focusField] || "edit-word");
+  focusEl.focus();
+  if (focusField === "section") focusEl.select();
 }
 
 function closeEditSheet() {

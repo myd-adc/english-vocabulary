@@ -28,8 +28,10 @@
   --column: 640px;
 }
 
+/* Dark palette: follows the system unless the user picked a theme in the menu (data-theme). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #101412;
     --surface: #171c19;
     --text: #e9eae4;
@@ -44,6 +46,22 @@
     --danger-soft: rgba(240, 138, 128, 0.13);
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101412;
+  --surface: #171c19;
+  --text: #e9eae4;
+  --text-2: #99a39c;
+  --rule: #2b332e;
+  --fill: rgba(233, 234, 228, 0.07);
+
+  --accent: #8ccaae;
+  --on-accent: #0f1f18;
+  --accent-soft: rgba(140, 202, 174, 0.14);
+  --danger: #f08a80;
+  --danger-soft: rgba(240, 138, 128, 0.13);
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 /* ===== Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,6 +173,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .part-meanings { font-size: 1.0625rem; line-height: 1.35; }
 .part-meanings strong { font-weight: 600; }
 .result-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.chip-btn { border: none; cursor: pointer; font: inherit; min-height: 32px; }
+.chip-btn:hover { background: var(--fill); }
 .chip { padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--accent-soft); color: var(--accent);
   font-size: 0.8125rem; font-weight: 600; }
 .result-status { font-size: 0.875rem; color: var(--text-2); }
@@ -419,6 +439,30 @@ button { -webkit-tap-highlight-color: transparent; }
 .quiz-actions { display: flex; gap: 0.5rem; width: 100%; margin-top: 0.75rem; }
 .quiz-actions .btn { flex: 1; }
 .quiz-stop { align-self: center; color: var(--text-2); font-weight: 500; }
+
+/* ===== Desktop / tablet ===== */
+@media (min-width: 900px) {
+  :root { --column: 1040px; }
+  .home-main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 3rem; row-gap: 1.25rem; grid-template-rows: auto auto 1fr;
+    align-items: start; padding-top: 2rem; }
+  .home-main > .quick-form, .home-main > #quick-result { grid-column: 1; }
+  .home-main > section[aria-labelledby="topics-title"] { grid-column: 2; grid-row: 1 / span 3; }
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .browse-main, .review-main { width: 100%; max-width: 760px; margin: 0 auto; }
+  .study-main { width: 100%; max-width: 640px; margin: 0 auto; }
+  .view:not(#view-home) > .app-header { width: 100%; max-width: calc(760px + 2.5rem); margin: 0 auto; }
+  #view-study > .app-header { max-width: calc(640px + 2.5rem); }
+  .review-bar .btn { max-width: 720px; }
+  .tile:hover, .word-main:hover .word-title, .menu-item:hover, .btn-review:hover, .btn-icon:hover { background: var(--fill); }
+  .word-main:hover .word-title { background: none; color: var(--accent); }
+  /* Sheets become centred dialogs instead of bottom sheets */
+  #edit-sheet-backdrop, #rename-sheet-backdrop { align-items: center; padding: 2rem; }
+  #edit-sheet, #rename-sheet { max-width: 560px; border-radius: 14px; max-height: 88vh;
+    padding: 1.5rem 1.75rem; transform: translateY(12px); }
+  #edit-sheet-backdrop.open #edit-sheet, #rename-sheet-backdrop.open #rename-sheet { transform: none; }
+  .edit-sheet-handle { display: none; }
+  .fab { right: max(2rem, calc((100vw - var(--column)) / 2 + 1.25rem)); bottom: 2rem; }
+}
 
 @media (max-width: 359px) {
   .card-word, .quiz-word { font-size: 2.5rem; }

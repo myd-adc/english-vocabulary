@@ -1,4 +1,4 @@
-const CACHE_NAME = "lexivocab-v5";
+const CACHE_NAME = "lexivocab-v6";
 const STATIC_ASSETS = [
   "/", "/index.html", "/app.js", "/quiz.js", "/speech.js", "/icons.js", "/style.css", "/manifest.json",
   "/icon-192.png", "/apple-touch-icon.png",
@@ -26,7 +26,8 @@ self.addEventListener("fetch", (event) => {
       url.pathname.startsWith("/.well-known/") || url.pathname === "/health") return;
   // App shell: network-first so deploys show up immediately; cache only as offline fallback.
   event.respondWith(
-    fetch(request)
+    // cache: "no-cache" revalidates with the server instead of trusting the browser's HTTP cache.
+    fetch(request, { cache: "no-cache" })
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();

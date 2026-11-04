@@ -14,6 +14,16 @@ from app.mcp_tools import mcp
 
 PWA_DIR = Path(__file__).resolve().parent.parent / "pwa"
 
+
+class PWAStaticFiles(StaticFiles):
+    """PWA files with `Cache-Control: no-cache`: the browser may keep them but must revalidate
+    (cheap 304 via ETag), so a deploy never pairs new HTML with a stale style.css or app.js."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
 # FastMCP builds a Starlette app that already carries the OAuth routes, the bearer-auth
 # middleware and the MCP session manager lifespan; we extend it instead of nesting it.
 app = mcp.streamable_http_app()
@@ -52,4 +62,4 @@ if not any(getattr(r, "path", "") == "/.well-known/oauth-protected-resource" for
 
 app.router.routes.append(Mount("/api", app=api))
 # html=True serves index.html at "/". Must be last: it matches everything else.
-app.router.routes.append(Mount("/", app=StaticFiles(directory=PWA_DIR, html=True), name="pwa"))
+app.router.routes.append(Mount("/", app=PWAStaticFiles(directory=PWA_DIR, html=True), name="pwa"))

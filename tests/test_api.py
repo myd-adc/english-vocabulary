@@ -11,6 +11,11 @@ def test_health_and_static(client):
     assert client.get("/apple-touch-icon.png").status_code == 200
 
 
+def test_pwa_files_must_revalidate(client):
+    for path in ("/", "/style.css", "/app.js"):
+        assert client.get(path).headers["cache-control"] == "no-cache"
+
+
 def test_auth_required_and_login(client, headers):
     assert client.get("/api/vocabulary").status_code == 401
     assert client.get("/api/vocabulary", headers={"Authorization": "Bearer junk"}).status_code == 401
