@@ -77,10 +77,19 @@ def enabled() -> bool:
     return bool(config.LLM_API_KEY)
 
 
+_cached_client: openai.OpenAI | None = None
+
+
 def _client() -> openai.OpenAI:
-    return openai.OpenAI(
-        api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL, timeout=15.0, max_retries=1
-    )
+    # One shared client keeps the HTTPS connection alive between words (no new TLS handshake).
+    # No retries: on a rate limit the SDK would sleep for the server's Retry-After (up to a minute);
+    # failing fast lets the user type the translation or try again.
+    global _cached_client
+    if _cached_client is None:
+        _cached_client = openai.OpenAI(
+            api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL, timeout=12.0, max_retries=0
+        )
+    return _cached_client
 
 
 def _parse(system: str, user: str, output_format: type[BaseModel]):

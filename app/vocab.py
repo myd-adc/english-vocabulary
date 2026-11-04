@@ -4,11 +4,15 @@ Shared in-process by the REST API (app/api.py) and the MCP tools (app/mcp_tools.
 All functions are synchronous (psycopg); async callers run them in a worker thread.
 """
 
+import logging
+import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app import config, translator
 from app.db import connection
+
+log = logging.getLogger(__name__)
 
 DIRECTIONS = ("forward", "reverse")  # forward = EN -> UA, reverse = UA -> EN
 MAX_BULK = 50
@@ -281,10 +285,13 @@ def quick_add(text: str) -> dict:
 
     if found := find_by_word(text):
         return result("exists", found)
+    started = time.monotonic()
     try:
         tr = translator.translate(text, topic_names())
     except translator.TranslationUnavailable:
         return result("unavailable")
+    finally:
+        log.info("quick_add translate took %.2fs", time.monotonic() - started)
     if not tr.is_english:
         return result("not_english")
     lemma = tr.lemma.strip()

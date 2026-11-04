@@ -1,5 +1,6 @@
 """Single ASGI app: MCP (+OAuth) at /mcp and /.well-known, REST API at /api, PWA at /."""
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,6 +12,15 @@ from starlette.staticfiles import StaticFiles
 from app import config, db
 from app.api import api
 from app.mcp_tools import mcp
+
+# App-level INFO logs (e.g. translation timing) go to stdout, which Render shows under Logs.
+_app_log = logging.getLogger("app")
+if not _app_log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    _app_log.addHandler(_handler)
+    _app_log.setLevel(logging.INFO)
+    _app_log.propagate = False
 
 PWA_DIR = Path(__file__).resolve().parent.parent / "pwa"
 

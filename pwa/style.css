@@ -179,6 +179,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .chip-btn:hover { background: var(--fill); }
 .chip { padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--accent-soft); color: var(--accent);
   font-size: 0.8125rem; font-weight: 600; }
+.result-pending { animation: pending-pulse 1.2s ease-in-out infinite; }
+@keyframes pending-pulse { 50% { opacity: 0.45; } }
 .result-status { font-size: 0.875rem; color: var(--text-2); }
 .result-actions { display: flex; gap: 0.5rem; }
 .manual-form { display: flex; gap: 0.5rem; }

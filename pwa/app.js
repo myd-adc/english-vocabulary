@@ -233,6 +233,11 @@ function renderQuickResult() {
   if (!quickState) return;
   const { status, input, word } = quickState;
 
+  if (status === "pending") {
+    quickResult.append(mk("h3", "result-word", input));
+    quickResult.append(mk("p", "result-status result-pending", "Перекладаю…"));
+    return;
+  }
   if (status === "error") {
     quickResult.append(
       mk("p", "error-msg", navigator.onLine ? "Не вдалося додати слово." : "Немає з'єднання."),
@@ -327,6 +332,10 @@ $("quick-form").addEventListener("submit", async (e) => {
     return;
   }
   setQuickBusy(true);
+  // Show the word right away; the translation fills in when it arrives.
+  quickState = { status: "pending", input: text, word: null };
+  quickWord = null;
+  renderQuickResult();
   try {
     const res = await apiFetch("/vocabulary/quick", { method: "POST", body: JSON.stringify({ text }) });
     if (!res.ok) throw new Error();
