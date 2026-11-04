@@ -1,0 +1,6 @@
+.segmented { display: flex; border: 1px solid var(--rule); border-radius: var(--radius); padding: 2px; gap: 2px; }
+.seg {
+  flex: 1; min-height: 44px; border: none; border-radius: var(--radius-sm); background: transparent;
+  color: var(--text-2); font-weight: 500; cursor: pointer;
+}
+.seg.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }

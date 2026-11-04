@@ -1,10 +1,10 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import { cx } from "../lib/cx";
 import styles from "./Button.module.css";
 
 type Variant = "primary" | "secondary" | "edit" | "delete";
 
-interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface Props extends ComponentProps<"button"> {
   variant?: Variant;
   /** Shows a small spinner after the label (aria-busy). */
   busy?: boolean;
@@ -28,6 +28,6 @@ export function Button({ variant = "primary", busy, className, type = "button", 
   );
 }
 
-export function IconButton({ className, type = "button", ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function IconButton({ className, type = "button", ...rest }: ComponentProps<"button">) {
   return <button type={type} className={cx(styles.btnIcon, className)} {...rest} />;
 }
