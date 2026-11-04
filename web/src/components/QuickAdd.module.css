@@ -8,7 +8,7 @@
 .input::placeholder { color: var(--text-2); opacity: 0.8; }
 .input.inputEmpty { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
 .input.inputEmpty::placeholder { color: var(--danger); opacity: 1; }
-.add { min-height: 48px; padding: 0 1rem; }
+.form .add { min-height: 48px; padding: 0 1rem; }
 
 @media (min-width: 900px) {
   .quick { gap: 1.25rem; }

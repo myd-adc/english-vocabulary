@@ -29,4 +29,4 @@
 }
 .manualInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .manualInput::placeholder { color: var(--text-2); opacity: 0.8; }
-.save { min-height: 48px; padding: 0 1rem; }
+.manualForm .save { min-height: 48px; padding: 0 1rem; }

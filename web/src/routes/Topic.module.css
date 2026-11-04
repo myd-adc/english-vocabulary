@@ -1,0 +1,16 @@
+.main { flex: 1; padding: 0.5rem max(1.25rem, env(safe-area-inset-right)) 6rem max(1.25rem, env(safe-area-inset-left)); }
+.actions { display: flex; gap: 0.5rem; margin-bottom: 0.875rem; }
+.actions > button { flex: 1; min-width: 0; padding: 0 0.75rem; font-size: 0.9375rem; }
+.count { font-size: 0.8125rem; color: var(--text-2); margin: 0.625rem 0 0.25rem; min-height: 1em; }
+.fab {
+  position: fixed; right: max(1.25rem, env(safe-area-inset-right)); bottom: max(1.25rem, env(safe-area-inset-bottom));
+  width: 56px; height: 56px; border-radius: 16px; border: none; z-index: 20; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+}
+.fab svg { width: 24px; height: 24px; }
+
+@media (min-width: 900px) {
+  .main { width: 100%; max-width: 760px; margin: 0 auto; }
+  .fab { right: max(2rem, calc((100vw - var(--column)) / 2 + 1.25rem)); bottom: 2rem; }
+}
