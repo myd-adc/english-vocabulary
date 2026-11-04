@@ -310,10 +310,22 @@ async function refreshTiles() {
   renderTiles();
 }
 
+quickInput.addEventListener("input", () => {
+  quickInput.classList.remove("input-empty");
+  quickInput.placeholder = "Англійське слово";
+});
+
 $("quick-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = quickInput.value.trim();
-  if (quickBusy || !text) return;
+  if (quickBusy) return;
+  if (!text) {
+    // Empty field: say so instead of silently ignoring the tap.
+    quickInput.classList.add("input-empty");
+    quickInput.placeholder = "Спершу введіть англійське слово";
+    quickInput.focus();
+    return;
+  }
   setQuickBusy(true);
   try {
     const res = await apiFetch("/vocabulary/quick", { method: "POST", body: JSON.stringify({ text }) });
