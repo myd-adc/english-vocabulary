@@ -1,19 +1,27 @@
 """Claude-backed EN -> UA translation and topic assignment."""
 
+import logging
+import re
+
 import anthropic
 import pydantic
 from pydantic import BaseModel
 
 from app import config
 
+log = logging.getLogger(__name__)
+
 MODEL = "claude-haiku-5-5"
 MAX_PARTS = 3
 MAX_MEANINGS = 5
+MAX_TOPIC = 40
+MAX_LEMMA = 100
 
 TOPIC_RULES = (
     "topic: pick one from the provided list of existing topics when one fits; otherwise create a "
     "broad Ukrainian topic of 1-3 words, capitalised (aim for roughly 10-20 topics in total). "
-    "Use exactly 'Загальне' for general words such as 'however' or 'available'."
+    "Use exactly 'Загальне' for general words such as 'however' or 'available'. "
+    "Never use the character '/' in a topic name."
 )
 
 SYSTEM = f"""You are an English to Ukrainian dictionary for a vocabulary-learning app.
@@ -76,14 +84,16 @@ def _parse(system: str, user: str, output_format: type[BaseModel]):
             output_format=output_format,
         )
     except (anthropic.APIError, pydantic.ValidationError, ValueError) as e:
+        log.warning("translator call failed: %s: %s", type(e).__name__, e)
         raise TranslationUnavailable(str(e)) from e
     if msg.stop_reason == "refusal" or msg.parsed_output is None:
+        log.warning("translator got no usable output (stop_reason=%s)", msg.stop_reason)
         raise TranslationUnavailable("no usable response from model")
     return msg.parsed_output
 
 
 def _match_topic(topic: str, existing_topics: list[str]) -> str:
-    topic = topic.strip()
+    topic = re.sub(r"\s+", " ", topic.replace("/", " і ")).strip()[:MAX_TOPIC]
     for t in existing_topics:
         if t.strip().lower() == topic.lower():
             return t
@@ -100,6 +110,7 @@ def translate(text: str, existing_topics: list[str]) -> Translation:
     t.parts = [
         PosMeanings(pos=p.pos, meanings=p.meanings[:MAX_MEANINGS]) for p in t.parts[:MAX_PARTS]
     ]
+    t.lemma = t.lemma.strip()[:MAX_LEMMA]
     t.topic = _match_topic(t.topic, existing_topics)
     return t
 

@@ -126,3 +126,26 @@ def test_invalid_structured_output_becomes_unavailable(monkeypatch):
         translate("run", [])
     with pytest.raises(TranslationUnavailable):
         suggest_topic("run", "бігти", [])
+
+
+def test_topic_slash_replaced_and_capped(monkeypatch):
+    _use(monkeypatch, FakeClient(result=_ok(_tr(topic="Їжа/напої  ", lemma="x" * 150))))
+    t = translate("x", [])
+    assert t.topic == "Їжа і напої" and len(t.lemma) == 100
+    _use(monkeypatch, FakeClient(result=_ok(TopicOnly(topic="Т" * 80))))
+    assert len(suggest_topic("w", "т", [])) == 40
+    _use(monkeypatch, FakeClient(result=_ok(TopicOnly(topic="А/Б"))))
+    assert suggest_topic("w", "т", []) == "А і Б"
+    assert "/" in translator.TOPIC_RULES  # rule is mentioned in the prompt
+
+
+def test_parse_failure_is_logged(monkeypatch, caplog):
+    _use(monkeypatch, FakeClient(exc=ValueError("boom")))
+    with caplog.at_level("WARNING", logger="app.translator"), pytest.raises(TranslationUnavailable):
+        translate("x", [])
+    assert "ValueError" in caplog.text and "boom" in caplog.text and "test-key" not in caplog.text
+    caplog.clear()
+    _use(monkeypatch, FakeClient(result=SimpleNamespace(parsed_output=None, stop_reason="refusal")))
+    with caplog.at_level("WARNING", logger="app.translator"), pytest.raises(TranslationUnavailable):
+        translate("x", [])
+    assert "refusal" in caplog.text

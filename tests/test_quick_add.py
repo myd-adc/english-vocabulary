@@ -143,4 +143,4 @@ def test_backfill_stops_on_unavailable(monkeypatch):
 
     monkeypatch.setattr(translator, "suggest_topic", fake)
     assert vocab.backfill_topics() == {"updated": 1, "remaining": 1}
-    assert vocab.topic_names() == [vocab.FALLBACK_TOPIC]
+    assert vocab.find_by_word("a")["section"] == vocab.FALLBACK_TOPIC
