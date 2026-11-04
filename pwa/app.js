@@ -260,6 +260,8 @@ function renderQuickResult() {
     inp.placeholder = "Переклад";
     inp.setAttribute("aria-label", "Переклад");
     inp.autocomplete = "off";
+    inp.value = quickState.draft || "";
+    inp.addEventListener("input", () => (quickState.draft = inp.value));
     const btn = mk("button", "btn btn-primary quick-add", "Зберегти");
     btn.type = "submit";
     form.append(inp, btn);

@@ -124,7 +124,7 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .home-main { gap: 1.75rem; }
 .btn-review {
-  min-height: 40px; padding: 0 0.875rem; border: 1px solid var(--rule); border-radius: var(--radius);
+  min-height: 44px; padding: 0 0.875rem; border: 1px solid var(--rule); border-radius: var(--radius);
   background: transparent; color: var(--accent); font-size: 0.9375rem; font-weight: 600; cursor: pointer;
 }
 .btn-review:active { background: var(--fill); }
