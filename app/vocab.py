@@ -283,23 +283,35 @@ def quick_add(text: str) -> dict:
     def result(status: str, word: dict | None = None) -> dict:
         return {"status": status, "input": text, "word": word}
 
-    if found := find_by_word(text):
-        return result("exists", found)
-    started = time.monotonic()
+    t0 = time.monotonic()
+    # One pooled connection for both lookups: every checkout costs round-trips to the database.
+    with connection() as conn:
+        row = conn.execute("SELECT * FROM words WHERE lower(word) = lower(%s)", [text]).fetchone()
+        topics = [] if row else [
+            r["section"]
+            for r in conn.execute(
+                "SELECT DISTINCT section FROM words WHERE section IS NOT NULL AND section <> %s "
+                "ORDER BY section",
+                [FALLBACK_TOPIC],
+            ).fetchall()
+        ]
+    if row:
+        return result("exists", _serialize(row))
+    t1 = time.monotonic()
     try:
-        tr = translator.translate(text, topic_names())
+        tr = translator.translate(text, topics)
     except translator.TranslationUnavailable:
         return result("unavailable")
     finally:
-        log.info("quick_add translate took %.2fs", time.monotonic() - started)
+        t2 = time.monotonic()
+        log.info("quick_add db %.2fs, translate %.2fs", t1 - t0, t2 - t1)
     if not tr.is_english:
         return result("not_english")
     lemma = tr.lemma.strip()
     if not lemma:
         return result("unavailable")
-    if found := find_by_word(lemma):
-        return result("exists", found)
     try:
+        # The insert skips duplicates itself, so no separate lookup for the lemma first.
         word = add_word(
             {
                 "word": lemma,
@@ -308,10 +320,12 @@ def quick_add(text: str) -> dict:
                 "section": tr.topic.strip() or FALLBACK_TOPIC,
             }
         )
-    except DuplicateWord:  # concurrent insert of the same lemma
+    except DuplicateWord:  # lemma already saved (e.g. "ran" when "run" exists)
         return result("exists", find_by_word(lemma))
     except ValidationError:  # model returned no usable translation
         return result("unavailable")
+    finally:
+        log.info("quick_add total %.2fs", time.monotonic() - t0)
     return result("created", word)
 
 
