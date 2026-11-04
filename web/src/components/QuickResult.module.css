@@ -1,0 +1,32 @@
+/* Result of an add: one dictionary entry */
+.result {
+  display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 1.125rem;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+}
+.result[hidden] { display: none; }
+.word { font-family: var(--serif); font-size: 2rem; font-weight: 500; line-height: 1.1;
+  letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.note { font-size: 0.9375rem; color: var(--text-2); }
+.parts { display: flex; flex-direction: column; gap: 0.375rem; }
+.part { display: grid; grid-template-columns: 6rem 1fr; column-gap: 0.75rem; align-items: baseline; }
+.partBare { grid-template-columns: 1fr; }
+.partPos { font-family: var(--serif); font-style: italic; color: var(--text-2); font-size: 0.9375rem; }
+.partMeanings { font-size: 1.0625rem; line-height: 1.35; }
+.partMeanings strong { font-weight: 600; }
+.meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.chip { border: none; cursor: pointer; font: inherit; min-height: 32px;
+  padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--accent-soft); color: var(--accent);
+  font-size: 0.8125rem; font-weight: 600; }
+.chip:hover { background: var(--fill); }
+.pending { animation: pending-pulse 1.2s ease-in-out infinite; }
+@keyframes pending-pulse { 50% { opacity: 0.45; } }
+.status { font-size: 0.875rem; color: var(--text-2); }
+.actions { display: flex; gap: 0.5rem; }
+.manualForm { display: flex; gap: 0.5rem; }
+.manualInput {
+  flex: 1; min-width: 0; min-height: 48px; padding: 0 0.875rem; border: 1px solid var(--rule);
+  border-radius: var(--radius); background: var(--surface); font-size: 1.0625rem;
+}
+.manualInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.manualInput::placeholder { color: var(--text-2); opacity: 0.8; }
+.save { min-height: 48px; padding: 0 1rem; }

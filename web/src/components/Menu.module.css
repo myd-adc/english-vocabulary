@@ -1,0 +1,15 @@
+.wrap { position: relative; }
+.button { margin-right: -0.75rem; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 2px); min-width: 160px; z-index: 20; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0.25rem;
+}
+.item {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 0 0.75rem; border-radius: var(--radius-sm); min-height: 44px; cursor: pointer;
+}
+.item:active { background: var(--fill); }
+
+@media (min-width: 900px) {
+  .item:hover { background: var(--fill); }
+}
