@@ -125,28 +125,73 @@
     </main>
   </div>
 
-  <!-- Усі слова -->
-  <div id="view-browse" class="view hidden">
+  <!-- Тема -->
+  <div id="view-topic" class="view hidden">
     <header class="app-header">
-      <button class="btn-icon" id="browse-back" aria-label="Назад"><span data-icon="chevron-left"></span></button>
-      <h2>Усі слова</h2>
+      <button class="btn-icon" id="topic-back" aria-label="Назад"><span data-icon="chevron-left"></span></button>
+      <h2 id="topic-title"></h2>
     </header>
     <main class="browse-main">
-      <div class="browse-tools">
-        <input type="search" id="browse-search" class="login-input" placeholder="Пошук"
-               autocomplete="off" autocapitalize="off" spellcheck="false" />
-        <select id="browse-section" class="native-select" aria-label="Тема"></select>
-        <select id="browse-filter" class="native-select" aria-label="Фільтр">
-          <option value="">Усі</option>
-          <option value="due">На сьогодні</option>
-          <option value="difficult">Складні</option>
-        </select>
+      <div class="topic-actions" id="topic-actions">
+        <button class="btn btn-primary" id="topic-review" type="button">Повторити тему</button>
+        <button class="btn btn-secondary" id="topic-rename" type="button">Перейменувати</button>
       </div>
-      <div id="browse-loading" class="centered hidden">Завантаження…</div>
-      <div id="browse-empty" class="centered hidden"><p>Слів не знайдено.</p></div>
-      <div id="browse-list"></div>
+      <input type="search" id="topic-search" class="login-input" placeholder="Пошук" aria-label="Пошук"
+             autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <p class="topic-count" id="topic-count"></p>
+      <div id="topic-loading" class="centered hidden">Завантаження…</div>
+      <div id="topic-empty" class="centered hidden"><p>Слів не знайдено.</p></div>
+      <div id="topic-list"></div>
     </main>
     <button class="fab" id="fab-add" aria-label="Додати слово"><span data-icon="plus"></span></button>
+  </div>
+
+  <!-- Повторення -->
+  <div id="view-review" class="view hidden">
+    <header class="app-header">
+      <button class="btn-icon" id="review-back" aria-label="Назад"><span data-icon="chevron-left"></span></button>
+      <h2>Повторення</h2>
+    </header>
+    <main class="review-main">
+      <div class="review-head">
+        <h3 class="section-title" id="review-topics-title">Теми</h3>
+        <button class="link-btn" id="review-toggle-all" type="button"></button>
+      </div>
+      <div id="review-list" role="group" aria-labelledby="review-topics-title"></div>
+      <p id="review-empty" class="centered hidden">Слів ще немає.</p>
+
+      <section class="settings">
+        <div class="setting-row">
+          <span class="setting-label" id="activity-label">Вправа</span>
+          <div class="segmented" id="activity-toggle" role="group" aria-labelledby="activity-label">
+            <button class="seg-btn" data-activity="cards" type="button">Картки</button>
+            <button class="seg-btn" data-activity="quiz" type="button">Квіз</button>
+          </div>
+          <p class="setting-desc hidden" id="activity-desc">Тест із варіантами відповіді. Розклад повторень не змінюється.</p>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label" id="dir-label">Напрямок</span>
+          <div class="segmented" id="dir-toggle" role="group" aria-labelledby="dir-label">
+            <button class="seg-btn" data-dir="forward" type="button">EN – UA</button>
+            <button class="seg-btn" data-dir="reverse" type="button">UA – EN</button>
+          </div>
+        </div>
+        <div class="setting-row setting-row-inline">
+          <div class="setting-text">
+            <span class="setting-label" id="autoplay-label">Автоозвучення</span>
+            <span class="setting-desc" id="autoplay-desc">Вимовляти слово й речення</span>
+            <span class="setting-desc voice-status hidden" id="voice-status"></span>
+          </div>
+          <button class="switch" id="autoplay-toggle" type="button" role="switch" aria-checked="true"
+                  aria-labelledby="autoplay-label" aria-describedby="autoplay-desc">
+            <span class="switch-knob" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+    </main>
+    <div class="review-bar">
+      <button class="btn btn-primary" id="review-start" type="button">Почати</button>
+    </div>
   </div>
 
   <div id="offline-banner" class="offline-banner hidden">Немає з'єднання</div>
@@ -182,6 +227,22 @@
       </div>
       <button id="edit-delete" class="btn-delete edit-sheet-delete" type="button">Видалити слово</button>
     </div>
+  </div>
+
+  <!-- Перейменувати тему -->
+  <div id="rename-sheet-backdrop" aria-hidden="true">
+    <form id="rename-sheet" role="dialog" aria-modal="true" aria-labelledby="rename-title" novalidate>
+      <div class="edit-sheet-handle" aria-hidden="true"></div>
+      <h3 id="rename-title">Перейменувати тему</h3>
+      <div class="edit-sheet-field"><label for="rename-input">Назва</label>
+        <input type="text" id="rename-input" autocomplete="off" /></div>
+      <p id="rename-hint" class="edit-hint hidden"></p>
+      <p id="rename-error" class="edit-error hidden"></p>
+      <div class="edit-sheet-actions">
+        <button id="rename-cancel" type="button">Скасувати</button>
+        <button id="rename-save" class="btn btn-primary" type="submit">Зберегти</button>
+      </div>
+    </form>
   </div>
 
   <script type="module" src="app.js"></script>

@@ -1,4 +1,4 @@
-import { createQuiz, exampleBlock } from "./quiz.js";
+import { createQuiz, exampleBlock, shortMeaning } from "./quiz.js";
 import { hydrateIcons, iconEl } from "./icons.js";
 import {
   canSpeak,
@@ -93,17 +93,20 @@ $("login-form").addEventListener("submit", async (e) => {
 });
 
 // ── Views ─────────────────────────────────────────────────────────────────────
-const views = { home: $("view-home"), study: $("view-study"), browse: $("view-browse") };
+const views = {
+  home: $("view-home"),
+  study: $("view-study"),
+  topic: $("view-topic"),
+  review: $("view-review"),
+};
 function showView(name, opts = {}) {
-  // Hooks for the topic page and the review picker (Task 5). Until those views exist,
-  // fall back to the browse list and the study session so nothing is unreachable.
-  if (name === "topic" && !views.topic) return void loadBrowse(opts.name || "");
-  if (name === "review" && !views.review) return void loadStudy();
   stopSpeaking();
   quiz.stop();
   Object.values(views).forEach((v) => v.classList.add("hidden"));
   views[name].classList.remove("hidden");
   window.scrollTo(0, 0);
+  if (name === "topic") openTopic(opts.name || "");
+  if (name === "review") openReview(opts.sections);
 }
 
 function showErrorMsg(container, text) {
@@ -124,26 +127,18 @@ const shuffle = (arr) => {
 // ── State ─────────────────────────────────────────────────────────────────────
 let direction = localStorage.getItem("lexi_dir") === "reverse" ? "reverse" : "forward";
 let activity = localStorage.getItem("lexi_activity") === "quiz" ? "quiz" : "cards";
-let section = ""; // "" = all sections
+let section = ""; // topic shown on the topic page ("" = all words)
+let studySections = []; // topics chosen on the review screen ([] = all)
 let sections = [];
 
 const isDifficult = (w) =>
   w.ease_factor < 2.1 || w.reverse_ease_factor < 2.1 || w.lapses >= 2 || w.reverse_lapses >= 2;
-
-function fillSectionSelect(select, withAll = true) {
-  const current = select.value;
-  select.replaceChildren();
-  if (withAll) select.append(new Option("Усі теми", ""));
-  for (const s of sections) select.append(new Option(`${s.name} (${s.words})`, s.name));
-  select.value = sections.some((s) => s.name === current) ? current : "";
-}
 
 async function loadSections() {
   try {
     const res = await apiFetch("/sections");
     if (!res.ok) return;
     sections = await res.json();
-    if (section && !sections.some((s) => s.name === section)) section = "";
     $("section-options").replaceChildren(...sections.map((s) => new Option(s.name)));
   } catch {
     // offline — keep what we have
@@ -400,8 +395,9 @@ $("btn-logout").addEventListener("click", () => {
 });
 
 $("btn-review").addEventListener("click", () => showView("review"));
+$("topic-review").addEventListener("click", () => showView("review", { sections: [section] }));
 $("fab-add").addEventListener("click", () => openEditSheet(null));
-for (const id of ["study-back", "browse-back", "study-done-btn", "study-home-btn"]) {
+for (const id of ["study-back", "topic-back", "review-back", "study-done-btn", "study-home-btn"]) {
   $(id).addEventListener("click", loadHome);
 }
 $("study-again-btn").addEventListener("click", loadStudy);
@@ -448,7 +444,7 @@ async function loadStudy() {
   try {
     if (activity === "quiz") return await startQuiz();
     const p = new URLSearchParams({ direction });
-    if (section) p.set("section", section);
+    for (const s of studySections) p.append("section", s);
     const res = await apiFetch(`/vocabulary/due?${p}`);
     if (!res.ok) throw new Error();
     dueCards = shuffle(await res.json());
@@ -468,16 +464,21 @@ async function loadStudy() {
 }
 
 async function startQuiz() {
-  const res = await apiFetch("/vocabulary?limit=1000");
-  if (!res.ok) throw new Error();
-  const deck = (await res.json()).words;
+  const p = new URLSearchParams({ limit: "1000" });
+  for (const s of studySections) p.append("section", s);
+  const [deckRes, cardsRes] = await Promise.all([
+    apiFetch("/vocabulary?limit=1000"),
+    studySections.length ? apiFetch(`/vocabulary?${p}`) : null,
+  ]);
+  if (!deckRes.ok || (cardsRes && !cardsRes.ok)) throw new Error();
+  const deck = (await deckRes.json()).words;
+  const cards = cardsRes ? (await cardsRes.json()).words : deck;
   studyEl.loading.classList.add("hidden");
-  const cards = deck.filter((c) => !section || c.section === section);
   if (deck.length < 4 || cards.length === 0) {
     studyEl.notice.textContent =
       deck.length < 4
         ? "Для квізу потрібно щонайменше 4 слова."
-        : "У цьому розділі слів немає.";
+        : "У вибраних темах слів немає.";
     studyEl.notice.classList.remove("hidden");
     return;
   }
@@ -498,7 +499,7 @@ function setText(id, text) {
 function renderCardFaces(card) {
   const rev = isReverse();
   setText("front-lang", rev ? "Українська" : "English");
-  $("front-main").textContent = rev ? card.translation : card.word;
+  $("front-main").textContent = rev ? shortMeaning(card) : card.word;
   $("front-main").lang = rev ? "uk" : "en";
   setText("front-sub", rev ? card.part_of_speech : card.transcription);
   setText("back-lang", rev ? "English" : "Українська");
@@ -640,78 +641,59 @@ function showStudyDone() {
   studyEl.progress.textContent = "";
 }
 
-// ── Browse ────────────────────────────────────────────────────────────────────
-const browseList = $("browse-list");
-let browseTimer = null;
+// ── Topic page ────────────────────────────────────────────────────────────────
+const topicList = $("topic-list");
+let topicTimer = null;
+let topicWords = [];
 
-$("browse-search").addEventListener("input", () => {
-  clearTimeout(browseTimer);
-  browseTimer = setTimeout(renderBrowse, 250);
-});
-$("browse-section").addEventListener("change", renderBrowse);
-$("browse-filter").addEventListener("change", renderBrowse);
-
-browseList.addEventListener("click", (e) => {
-  const item = e.target.closest(".word-item");
-  if (!item) return;
-  const word = browseWords.find((w) => w.id === Number(item.dataset.id));
-  if (e.target.closest(".btn-speak")) return void speak(word.word);
-  if (e.target.closest(".btn-edit")) return void openEditSheet(word);
-  if (e.target.closest(".word-summary")) item.classList.toggle("expanded");
+$("topic-search").addEventListener("input", () => {
+  clearTimeout(topicTimer);
+  topicTimer = setTimeout(renderTopic, 250);
 });
 
-let browseWords = [];
+topicList.addEventListener("click", (e) => {
+  const row = e.target.closest(".word-row");
+  if (!row) return;
+  const word = topicWords.find((w) => w.id === Number(row.dataset.id));
+  if (!word) return;
+  if (e.target.closest(".btn-speak")) speak(word.word);
+  else openEditSheet(word);
+});
 
-async function loadBrowse(name = "") {
+async function openTopic(name) {
   section = name;
-  showView("browse");
-  await loadSections();
-  fillSectionSelect($("browse-section"));
-  $("browse-section").value = section;
-  await renderBrowse();
+  const isAll = !name;
+  $("topic-title").textContent = isAll ? "Усі слова" : name;
+  $("topic-search").value = "";
+  $("topic-review").classList.toggle("hidden", isAll);
+  $("topic-rename").classList.toggle("hidden", isAll || name === FALLBACK_TOPIC);
+  $("topic-actions").classList.toggle("hidden", isAll);
+  await renderTopic();
+  loadSections(); // keeps the rename merge hint and edit-sheet suggestions current
 }
 
-async function renderBrowse() {
-  browseList.replaceChildren();
-  $("browse-loading").classList.remove("hidden");
-  $("browse-empty").classList.add("hidden");
+async function renderTopic() {
+  topicList.replaceChildren();
+  $("topic-loading").classList.remove("hidden");
+  $("topic-empty").classList.add("hidden");
+  $("topic-count").textContent = "";
   const p = new URLSearchParams({ limit: "1000" });
-  const q = $("browse-search").value.trim();
+  const q = $("topic-search").value.trim();
   if (q) p.set("q", q);
-  if ($("browse-section").value) p.set("section", $("browse-section").value);
-  const filter = $("browse-filter").value;
-  if (filter === "due") p.set("due", direction);
-  if (filter === "difficult") p.set("difficult", "true");
+  if (section) p.append("section", section);
   try {
     const res = await apiFetch(`/vocabulary?${p}`);
     if (!res.ok) throw new Error();
-    browseWords = (await res.json()).words;
+    topicWords = (await res.json()).words;
   } catch {
-    $("browse-loading").classList.add("hidden");
-    showErrorMsg(browseList, "Не вдалося завантажити слова.");
+    $("topic-loading").classList.add("hidden");
+    showErrorMsg(topicList, "Не вдалося завантажити слова.");
     return;
   }
-  $("browse-loading").classList.add("hidden");
-  if (browseWords.length === 0) return void $("browse-empty").classList.remove("hidden");
-
-  const groups = new Map();
-  for (const w of browseWords) {
-    const key = w.section || "Без розділу";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(w);
-  }
-  const frag = document.createDocumentFragment();
-  for (const [name, words] of groups) {
-    const group = document.createElement("div");
-    group.className = "lang-group";
-    const heading = document.createElement("div");
-    heading.className = "lang-heading";
-    heading.textContent = `${name} · ${words.length}`;
-    group.appendChild(heading);
-    for (const w of words) group.appendChild(buildWordItem(w));
-    frag.appendChild(group);
-  }
-  browseList.appendChild(frag);
+  $("topic-loading").classList.add("hidden");
+  if (topicWords.length === 0) return void $("topic-empty").classList.remove("hidden");
+  $("topic-count").textContent = pluralWords(topicWords.length);
+  topicList.append(...topicWords.map(buildWordRow));
 }
 
 function el(tag, cls, text) {
@@ -721,48 +703,185 @@ function el(tag, cls, text) {
   return e;
 }
 
-function buildWordItem(w) {
-  const item = el("div", "word-item");
-  item.dataset.id = w.id;
-
-  const title = el("div", "word-title", w.word);
-  if (isDifficult(w)) title.append(el("span", "badge-hard", "складне"));
-  const text = el("div", "word-text");
-  text.append(title, el("div", "word-def", w.translation));
-
-  const summary = el("div", "word-summary");
-  summary.append(text);
-  const speakBtn = el("button", "btn-icon btn-speak");
-  speakBtn.append(iconEl("speaker"));
-  speakBtn.type = "button";
-  speakBtn.setAttribute("aria-label", `Прослухати ${w.word}`);
-  summary.append(speakBtn, el("span", "word-due", w.next_review), (() => { const c = el("span", "word-expand-icon"); c.append(iconEl("chevron-down")); return c; })());
-
-  const detail = el("div", "word-detail");
-  const meta = [w.transcription, w.part_of_speech].filter(Boolean).join(" · ");
-  if (meta) detail.append(el("div", "word-stats", meta));
-  const ex = exampleBlock(w);
-  if (ex) {
-    ex.style.textAlign = "left";
-    detail.append(ex);
-  }
-  if (w.notes) detail.append(el("div", "card-notes", w.notes));
-  detail.append(
-    el(
-      "div",
-      "word-stats",
-      `EN–UA: ease ${w.ease_factor.toFixed(2)}, помилок ${w.lapses}. UA–EN: ease ${w.reverse_ease_factor.toFixed(2)}, помилок ${w.reverse_lapses}.`
-    )
+function buildWordRow(w) {
+  const row = el("div", "word-row");
+  row.dataset.id = w.id;
+  const main = el("button", "word-main");
+  main.type = "button";
+  main.append(
+    el("span", "word-title", w.word),
+    el("span", "word-def", shortMeaning(w).split("\n")[0])
   );
-  const actions = el("div", "word-actions");
-  const edit = el("button", "btn-edit", "Редагувати");
-  edit.type = "button";
-  actions.append(edit);
-  detail.append(actions);
-
-  item.append(summary, detail);
-  return item;
+  const speakBtn = el("button", "btn-icon btn-speak");
+  speakBtn.type = "button";
+  speakBtn.append(iconEl("speaker"));
+  speakBtn.setAttribute("aria-label", `Прослухати ${w.word}`);
+  row.append(main, speakBtn);
+  return row;
 }
+
+// ── Rename topic ──────────────────────────────────────────────────────────────
+const renameBackdrop = $("rename-sheet-backdrop");
+const renameInput = $("rename-input");
+
+function renameHint() {
+  const v = renameInput.value.trim();
+  const merge = v && v !== section && sections.some((s) => s.name === v);
+  $("rename-hint").textContent = merge ? "Така тема вже є, слова об'єднаються." : "";
+  $("rename-hint").classList.toggle("hidden", !merge);
+}
+renameInput.addEventListener("input", () => {
+  $("rename-error").classList.add("hidden");
+  renameHint();
+});
+
+function openRename() {
+  renameInput.value = section;
+  $("rename-error").classList.add("hidden");
+  renameHint();
+  renameBackdrop.setAttribute("aria-hidden", "false");
+  renameBackdrop.classList.add("open");
+  window.visualViewport?.addEventListener("resize", onViewportResize);
+  renameInput.focus();
+  renameInput.select();
+}
+function closeRename() {
+  window.visualViewport?.removeEventListener("resize", onViewportResize);
+  for (const b of [renameBackdrop, editBackdrop]) {
+    b.style.height = "";
+    b.style.top = "";
+  }
+  renameBackdrop.classList.remove("open");
+  renameBackdrop.setAttribute("aria-hidden", "true");
+}
+function renameFail(msg) {
+  $("rename-error").textContent = msg;
+  $("rename-error").classList.remove("hidden");
+}
+
+$("topic-rename").addEventListener("click", openRename);
+$("rename-cancel").addEventListener("click", closeRename);
+renameBackdrop.addEventListener("click", (e) => {
+  if (e.target === renameBackdrop) closeRename();
+});
+$("rename-sheet").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const next = renameInput.value.trim();
+  if (!next) return renameFail("Введи назву теми.");
+  if (next === section) return closeRename();
+  const btn = $("rename-save");
+  btn.disabled = true;
+  try {
+    const res = await apiFetch(`/topics/${encodeURIComponent(section)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: next }),
+    });
+    if (!res.ok) return renameFail(res.status === 404 ? "Такої теми вже немає." : "Не вдалося перейменувати.");
+  } catch {
+    return renameFail("Не вдалося перейменувати.");
+  } finally {
+    btn.disabled = false;
+  }
+  closeRename();
+  $("topic-title").textContent = next;
+  section = next;
+  await loadSections();
+  await renderTopic();
+});
+
+// ── Review picker ─────────────────────────────────────────────────────────────
+let reviewSel = new Set();
+const reviewList = $("review-list");
+
+function bindSegmented(el, attr, get, set) {
+  const sync = () =>
+    el.querySelectorAll(".seg-btn").forEach((b) => {
+      const on = b.dataset[attr] === get();
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+  el.addEventListener("click", (e) => {
+    const btn = e.target.closest(".seg-btn");
+    if (!btn) return;
+    set(btn.dataset[attr]);
+    sync();
+  });
+  sync();
+}
+bindSegmented($("activity-toggle"), "activity", () => activity, (v) => {
+  activity = v;
+  localStorage.setItem("lexi_activity", v);
+  $("activity-desc").classList.toggle("hidden", v !== "quiz");
+});
+bindSegmented($("dir-toggle"), "dir", () => direction, (v) => {
+  direction = v;
+  localStorage.setItem("lexi_dir", v);
+  renderReview();
+});
+$("activity-desc").classList.toggle("hidden", activity !== "quiz");
+
+function syncAudioSettings() {
+  $("autoplay-toggle").setAttribute("aria-checked", String(getSettings().autoplay));
+  const problem = voiceProblem();
+  $("voice-status").textContent = problem || "";
+  $("voice-status").classList.toggle("hidden", !problem);
+}
+$("autoplay-toggle").addEventListener("click", () => {
+  setSetting("autoplay", !getSettings().autoplay);
+  syncAudioSettings();
+});
+
+async function openReview(preselect) {
+  syncAudioSettings();
+  await loadSections();
+  reviewSel = new Set(preselect ? preselect : sections.map((s) => s.name));
+  renderReview();
+}
+
+function renderReview() {
+  $("review-empty").classList.toggle("hidden", sections.length > 0);
+  reviewList.replaceChildren(
+    ...sections.map((s, i) => {
+      const due = direction === "reverse" ? s.due_reverse : s.due;
+      const label = el("label", "check-row");
+      const box = el("input", "check-box");
+      box.type = "checkbox";
+      box.checked = reviewSel.has(s.name);
+      box.addEventListener("change", () => {
+        if (box.checked) reviewSel.add(s.name);
+        else reviewSel.delete(s.name);
+        syncReviewControls();
+      });
+      const text = el("span", "check-text");
+      text.append(
+        el("span", "check-name", s.name),
+        el("span", "check-sub", due ? `${pluralWords(s.words)}, до повторення ${due}` : pluralWords(s.words))
+      );
+      label.append(box, text);
+      return label;
+    })
+  );
+  syncReviewControls();
+}
+
+function syncReviewControls() {
+  const all = sections.length > 0 && sections.every((s) => reviewSel.has(s.name));
+  $("review-toggle-all").textContent = all ? "Зняти всі" : "Вибрати всі";
+  $("review-toggle-all").classList.toggle("hidden", sections.length < 2);
+  $("review-start").disabled = !sections.some((s) => reviewSel.has(s.name));
+}
+
+$("review-toggle-all").addEventListener("click", () => {
+  const all = sections.every((s) => reviewSel.has(s.name));
+  reviewSel = new Set(all ? [] : sections.map((s) => s.name));
+  renderReview();
+});
+
+$("review-start").addEventListener("click", () => {
+  const chosen = sections.map((s) => s.name).filter((n) => reviewSel.has(n));
+  studySections = chosen.length === sections.length ? [] : chosen;
+  loadStudy();
+});
 
 // ── Add / edit sheet ──────────────────────────────────────────────────────────
 const editBackdrop = $("edit-sheet-backdrop");
@@ -781,15 +900,17 @@ let editing = null; // word object, or null when adding
 
 function onViewportResize() {
   const vv = window.visualViewport;
-  editBackdrop.style.height = `${vv.height}px`;
-  editBackdrop.style.top = `${vv.offsetTop}px`;
+  for (const b of [editBackdrop, renameBackdrop]) {
+    b.style.height = `${vv.height}px`;
+    b.style.top = `${vv.offsetTop}px`;
+  }
 }
 
 function openEditSheet(word) {
   editing = word;
   $("edit-title").textContent = word ? "Редагувати слово" : "Нове слово";
   for (const [key, id] of Object.entries(FIELDS)) {
-    $(id).value = word ? word[key] || "" : key === "section" ? section : "";
+    $(id).value = word ? word[key] || "" : key === "section" && section !== FALLBACK_TOPIC ? section : "";
   }
   $("edit-delete").classList.toggle("hidden", !word);
   $("edit-error").classList.add("hidden");
@@ -817,10 +938,9 @@ async function refreshAfterEdit(updated) {
   if (!views.study.classList.contains("hidden") && dueCards[currentIndex] && updated) {
     Object.assign(dueCards[currentIndex], updated);
     renderCardFaces(dueCards[currentIndex]);
-  } else if (!views.browse.classList.contains("hidden")) {
+  } else if (!views.topic.classList.contains("hidden")) {
     await loadSections();
-    fillSectionSelect($("browse-section"));
-    await renderBrowse();
+    await renderTopic();
   } else if (!views.home.classList.contains("hidden")) {
     if (quickWord && editing && editing.id === quickWord.id) {
       quickWord = updated ? { ...quickWord, ...updated } : null;
@@ -882,7 +1002,9 @@ editBackdrop.addEventListener("click", (e) => {
   if (e.target === editBackdrop) closeEditSheet();
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && editBackdrop.classList.contains("open")) closeEditSheet();
+  if (e.key !== "Escape") return;
+  if (renameBackdrop.classList.contains("open")) closeRename();
+  else if (editBackdrop.classList.contains("open")) closeEditSheet();
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

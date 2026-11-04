@@ -36,9 +36,12 @@ export function exampleBlock(card) {
   );
 }
 
+// Short answer for options and prompts: the main meaning, else the full translation.
+export const shortMeaning = (c) => c.main_translation || c.translation;
+
 // label(card) = what an option shows (and what must differ between options)
 const KINDS = {
-  en2ua: { label: (c) => c.translation, english: false },
+  en2ua: { label: shortMeaning, english: false },
   ua2en: { label: (c) => c.word, english: true },
   listen: { label: (c) => c.word, english: true },
 };
@@ -150,12 +153,12 @@ export function createQuiz(root, hooks) {
       prompt.append(
         h("p", { class: "quiz-label", text: "Що означає це слово?" }),
         h("span", { class: "quiz-word", lang: "en", text: card.word }),
-        card.transcription ? h("p", { class: "card-ipa", text: card.transcription }) : null
+        ...(card.transcription ? [h("p", { class: "card-ipa", text: card.transcription })] : [])
       );
     } else if (kind === "ua2en") {
       prompt.append(
         h("p", { class: "quiz-label", text: "Як це англійською?" }),
-        h("p", { class: "quiz-meaning", text: card.translation })
+        h("p", { class: "quiz-meaning", text: shortMeaning(card) })
       );
     } else {
       prompt.append(
@@ -216,7 +219,7 @@ export function createQuiz(root, hooks) {
         next();
       },
     });
-    root.querySelector(".quiz-result").replaceChildren(
+    root.querySelector(".quiz-result").replaceChildren(...[
       h("p", { class: `quiz-verdict ${correct ? "ok" : "no"}`, text: correct ? "Правильно" : "Неправильно" }),
       h("span", { class: "quiz-word quiz-word-sm", lang: "en", text: card.word }),
       card.transcription ? h("p", { class: "card-ipa", text: card.transcription }) : null,
@@ -233,7 +236,7 @@ export function createQuiz(root, hooks) {
         ),
         nextBtn
       )
-    );
+    ].filter(Boolean));
     nextBtn.focus({ preventScroll: true });
     if (getSettings().autoplay) speakCard(card);
   }
