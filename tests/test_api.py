@@ -242,3 +242,14 @@ def test_topic_names_excludes_fallback(client, headers):
     client.post("/api/vocabulary", json={"word": "b", "translation": "b", "section": "Без теми"}, headers=headers)
     client.post("/api/vocabulary", json={"word": "c", "translation": "c"}, headers=headers)
     assert vocab.topic_names(U) == ["Рух"]
+
+
+def test_tables_have_row_level_security(client):
+    from app.db import connection
+
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT relname, relrowsecurity FROM pg_class WHERE relname = ANY(%s)",
+            [["words", "oauth_clients", "oauth_auth_codes", "oauth_refresh_tokens", "oauth_revoked_tokens"]],
+        ).fetchall()
+    assert len(rows) == 5 and all(r["relrowsecurity"] for r in rows)

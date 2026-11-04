@@ -122,3 +122,9 @@ def init_db() -> None:
         # MCP connector: authorizations and refresh tokens remember whose account they belong to.
         conn.execute("ALTER TABLE oauth_auth_codes ADD COLUMN IF NOT EXISTS user_id TEXT")
         conn.execute("ALTER TABLE oauth_refresh_tokens ADD COLUMN IF NOT EXISTS user_id TEXT")
+        # The Supabase publishable key ships in the browser bundle. Row Level Security with no
+        # policies blocks the anon/authenticated roles from reading these tables through the
+        # Supabase Data API; the app itself connects as the table owner and is not affected.
+        for table in ("words", "oauth_clients", "oauth_auth_codes", "oauth_refresh_tokens",
+                      "oauth_revoked_tokens"):
+            conn.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
