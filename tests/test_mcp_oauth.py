@@ -129,7 +129,7 @@ def test_full_flow_and_tools(client):
     tok, info = get_tokens(client)
     access = tok["access_token"]
     init = init_session(client, access)
-    assert init["result"]["serverInfo"]["name"] == "lexivocab"
+    assert init["result"]["serverInfo"]["name"] == "dicktionary"
     tools = {t["name"] for t in rpc(client, access, "tools/list", id_=2)["result"]["tools"]}
     assert tools == {"add_words", "list_words", "update_word", "delete_word", "list_sections", "get_stats"}
 
