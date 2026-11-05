@@ -31,7 +31,7 @@ ALLOWED_EMAILS = frozenset(
 )
 # Words saved before accounts existed (user_id IS NULL) go to this person on their first request.
 OWNER_EMAIL = os.getenv("OWNER_EMAIL", "").strip().lower()
-# Public https URL of the service, no trailing slash, e.g. https://lexivocab.onrender.com
+# Public https URL of the service, no trailing slash, e.g. https://glossa-app.onrender.com
 ISSUER_URL = os.getenv("ISSUER_URL", "http://localhost:8000").strip().rstrip("/")
 PORT = int(os.getenv("PORT", "8000"))
 # "Today" (for due dates) is computed in this timezone, not in the server's UTC.

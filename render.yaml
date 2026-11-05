@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: lexivocab
+    name: glossa-app
     runtime: python
     plan: free
     region: frankfurt     # same region as the Supabase database (eu-central-1)

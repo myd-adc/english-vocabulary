@@ -32,7 +32,7 @@ Unlike a flashcard app where you type both sides yourself, here you type only th
 - Speech (text to speech) for headwords.
 - Accounts via Supabase (email + password, Google); invite-only allowlist; per-user dictionaries.
 - PWA: installable, offline shell, light and dark themes (system or chosen).
-- Stack: React + Vite + TypeScript + CSS Modules in `web/`, FastAPI backend in `app/`. Service URL stays `dicktionary.onrender.com`.
+- Stack: React + Vite + TypeScript + CSS Modules in `web/`, FastAPI backend in `app/`. Service URL: `glossa-app.onrender.com`.
 
 ## Brand Commitments
 

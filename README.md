@@ -34,11 +34,11 @@ git push -u origin main
 ### 3. Render (Blueprint)
 1. [render.com](https://render.com) → **New → Blueprint** → оберіть репозиторій. Render прочитає `render.yaml` (free web service).
 2. Введіть змінні (див. таблицю нижче): `DATABASE_URL`, `MCP_SECRET` (`openssl rand -hex 32`), `SUPABASE_URL`, `ALLOWED_EMAILS`, `OWNER_EMAIL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (налаштування акаунтів: [docs/superpowers/plans/2026-11-04-multi-user-auth-report.md](docs/superpowers/plans/2026-11-04-multi-user-auth-report.md)), за бажанням `LLM_API_KEY` (безкоштовний ключ Gemini: [aistudio.google.com](https://aistudio.google.com) → **Get API key**). `ISSUER_URL` поки залиште будь-яким `https://...`.
-3. Після першого деплою скопіюйте URL сервісу (`https://lexivocab-xxxx.onrender.com`), встановіть його в **Environment → `ISSUER_URL`** (без `/` в кінці) і натисніть **Manual Deploy → Deploy latest commit**.
+3. Після першого деплою скопіюйте URL сервісу (`https://glossa-app.onrender.com`), встановіть його в **Environment → `ISSUER_URL`** (без `/` в кінці) і натисніть **Manual Deploy → Deploy latest commit**.
 4. Перевірка: `curl https://<url>/health` → `{"status":"ok"}`.
 
 ### 4. Підключення до claude.ai
-**Settings → Connectors → Add custom connector** → URL: `ISSUER_URL` + `/mcp`, наприклад `https://lexivocab-xxxx.onrender.com/mcp`. Відкриється сторінка Glossa: увійдіть у свій акаунт і натисніть «Дозволити» — слова потраплять у ваш словник. Далі скажіть Claude: «збережи ці слова в Glossa».
+**Settings → Connectors → Add custom connector** → URL: `ISSUER_URL` + `/mcp`, наприклад `https://glossa-app.onrender.com/mcp`. Відкриється сторінка Glossa: увійдіть у свій акаунт і натисніть «Дозволити» — слова потраплять у ваш словник. Далі скажіть Claude: «збережи ці слова в Glossa».
 
 ### 5. Пінг, щоб сервіс не засинав
 Безкоштовний Render засинає через 15 хв без трафіку (холодний старт ~1 хв). На [cron-job.org](https://cron-job.org): новий cron, URL `https://<url>/health`, кожні **10 хвилин**. Один сервіс 24/7 вкладається в ~750 безкоштовних годин. `/health` торкається БД, тож заодно Supabase не «призупиняє» проєкт за неактивність.
