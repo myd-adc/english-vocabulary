@@ -115,7 +115,7 @@ body {
 }
 button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+:where(:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
 ::selection { background: var(--mk-yellow); color: var(--text); }
 input, textarea { caret-color: var(--ink); accent-color: var(--ink); }
 h1, h2, h3 { text-wrap: balance; }

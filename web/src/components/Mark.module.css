@@ -3,7 +3,7 @@
   --mk: var(--mk-yellow);
   padding: 0 0.14em;
   margin: 0 -0.14em;
-  background-image: linear-gradient(177deg, transparent 54%, var(--mk) 55%, var(--mk) 92%, transparent 94%);
+  background-image: linear-gradient(179deg, transparent 42%, var(--mk) 43%, var(--mk) 92%, transparent 94%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
   border-radius: 0.12em 0.4em 0.15em 0.3em;

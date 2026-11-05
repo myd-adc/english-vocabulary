@@ -6,6 +6,7 @@ import { Button } from "../components/Button";
 import { Centered } from "../components/Centered";
 import { Header } from "../components/Header";
 import { LinkButton } from "../components/LinkButton";
+import { Mark } from "../components/Mark";
 import { Page } from "../components/Page";
 import { SectionTitle } from "../components/SectionTitle";
 import { Segmented } from "../components/Segmented";
@@ -50,7 +51,7 @@ export function Review() {
 
   return (
     <Page>
-      <Header title="Повторення" />
+      <Header title="Повторення" home />
       <main className={styles.main}>
         <div className={styles.head}>
           <SectionTitle as="h3" id="review-topics-title" className={styles.title}>
@@ -78,7 +79,9 @@ export function Review() {
                   onChange={() => toggle(s.name)}
                 />
                 <span className={styles.text}>
-                  <span className={styles.name}>{s.name}</span>
+                  <span className={styles.name}>
+                    <Mark topic={s.name}>{s.name}</Mark>
+                  </span>
                   <span className={styles.sub}>
                     {due ? `${pluralWords(s.words)}, до повторення ${due}` : pluralWords(s.words)}
                   </span>
