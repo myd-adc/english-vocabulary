@@ -30,7 +30,7 @@ class WordInput(TypedDict, total=False):
 oauth_provider = VocabularyOAuthProvider(secret=config.MCP_SECRET, issuer_url=config.ISSUER_URL)
 
 mcp = FastMCP(
-    "dicktionary",
+    "glossa",
     auth_server_provider=oauth_provider,
     auth=AuthSettings(
         issuer_url=config.ISSUER_URL,

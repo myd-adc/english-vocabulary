@@ -25,7 +25,7 @@ from app.models import (
 
 BACKFILL_BATCH = 10
 
-api = FastAPI(title="Dicktionary API", docs_url="/docs", openapi_url="/openapi.json")
+api = FastAPI(title="Glossa API", docs_url="/docs", openapi_url="/openapi.json")
 
 
 protected = APIRouter(dependencies=[Depends(auth.require_auth)])

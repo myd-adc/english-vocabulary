@@ -7,7 +7,7 @@ export function NoAccess({ email }: { email: string }) {
   return (
     <AuthFrame
       title="Немає доступу"
-      lead={`Акаунт ${email} не має доступу до Dicktionary. Це приватний словник: попросіть власника додати вашу адресу.`}
+      lead={`Акаунт ${email} не має доступу до Glossa. Це приватний словник: попросіть власника додати вашу адресу.`}
     >
       <Button variant="secondary" onClick={() => void signOut()}>
         Вийти
