@@ -1,6 +1,6 @@
-.segmented { display: flex; border: 1px solid var(--rule); border-radius: var(--radius); padding: 3px; gap: 2px; background: var(--surface); }
+.segmented { display: flex; border-radius: var(--radius); padding: 4px; gap: 4px; background: var(--surface-2); }
 .seg {
-  flex: 1; min-height: 42px; border: none; border-radius: 7px; background: transparent;
-  color: var(--text-2); font-weight: 500; cursor: pointer;
+  flex: 1; min-height: 44px; border: none; border-radius: 9px; background: transparent;
+  color: var(--text-2); font-weight: 600; cursor: pointer; transition: background var(--ease), color var(--ease);
 }
-.seg.active { background: var(--accent); color: var(--on-accent); }
+.seg.active { background: var(--ink); color: var(--on-ink); }

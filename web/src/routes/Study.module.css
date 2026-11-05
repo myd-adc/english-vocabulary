@@ -1,8 +1,4 @@
 .main { flex: 1; padding: 0.5rem max(1.25rem, env(safe-area-inset-right)) calc(1.5rem + env(safe-area-inset-bottom))
   max(1.25rem, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 1.25rem; }
-.progress { font-size: 0.875rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.progress { margin-left: auto; margin-right: 0.5rem; font-size: 0.9375rem; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .main .notice { color: var(--text-2); }
-
-@media (min-width: 900px) {
-  .main { width: 100%; max-width: 640px; margin: 0 auto; }
-}

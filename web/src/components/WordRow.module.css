@@ -1,13 +1,17 @@
-.row { display: flex; align-items: center; gap: 0.25rem; border-bottom: 1px solid var(--rule); }
-.main { flex: 1; min-width: 0; min-height: 68px; padding: 0.75rem 0; display: flex; flex-direction: column;
-  align-items: flex-start; justify-content: center; gap: 0.125rem; text-align: left; background: none; border: none;
-  color: var(--text); cursor: pointer; }
-.title { font-family: var(--serif); font-size: var(--fs-3); font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
-.def { max-width: 100%; padding-left: 0.6em; font-family: var(--serif); font-style: italic; font-size: 1.0625rem;
-  line-height: 1.3; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.main:active .title { color: var(--accent); }
-.row .speak { color: var(--text-2); }
+.row { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.75rem; border-bottom: 1px solid var(--line-soft); }
+.main {
+  flex: 1; min-width: 0; min-height: 72px; padding: 14px 0 14px 20px; display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 4px; text-align: left; background: none; border: none;
+  color: var(--text); cursor: pointer;
+}
+.title { font-size: var(--fs-3); font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; overflow-wrap: anywhere; }
+.def {
+  max-width: 100%; font-size: 15px; line-height: 1.35; color: var(--text-2); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; padding-left: 0;
+}
+.speak { color: var(--text-3); }
+.main:active .title { opacity: 0.7; }
 
 @media (min-width: 900px) {
-  .main:hover .title { color: var(--accent); }
+  .row:hover { background: var(--surface-2); }
 }

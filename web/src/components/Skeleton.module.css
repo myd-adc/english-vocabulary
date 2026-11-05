@@ -1,14 +1,14 @@
-.skeleton { border-radius: var(--radius); background: var(--fill); position: relative; overflow: hidden; }
+.skeleton { background: var(--surface-2); position: relative; overflow: hidden; }
 .skeleton::after {
   content: ""; position: absolute; inset: 0; transform: translateX(-100%);
   background: linear-gradient(90deg, transparent, var(--fill), transparent);
   animation: shimmer 1.3s ease-in-out infinite;
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
-.tile { min-height: 84px; }
-.row { height: 44px; margin: 0.5rem 0 0.75rem; border-radius: var(--radius-sm); }
+.tile { height: 64px; margin: 0 1.25rem 0.5rem; border-radius: var(--radius); }
+.row { height: 44px; margin: 14px 20px 18px; border-radius: 10px; width: 55%; }
 .spinner {
   display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 50%;
-  border: 2px solid var(--rule); border-top-color: var(--accent); animation: spin 0.8s linear infinite;
+  border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }

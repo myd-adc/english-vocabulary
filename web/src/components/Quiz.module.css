@@ -1,42 +1,40 @@
 .quiz { width: 100%; display: flex; flex-direction: column; gap: 1.25rem; }
-.prompt { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0 1rem;
-  border-bottom: 1px solid var(--rule); }
-.label { font-size: 0.875rem; color: var(--text-2); }
-.word { font-family: var(--serif); font-size: var(--fs-6); font-weight: 500; line-height: 1.1; overflow-wrap: anywhere; }
-.wordSm { font-size: var(--fs-4); }
-.ipa { font-family: var(--serif); font-size: var(--fs-3); color: var(--text-2); margin-top: 0.25rem; }
-.meaning { font-family: var(--serif); font-style: italic; font-size: var(--fs-5); line-height: 1.2; color: var(--accent); }
+.prompt { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0 1rem; }
+.label { font-size: 0.875rem; font-weight: 600; color: var(--text-2); }
+.word { font-size: var(--fs-6); font-weight: 800; letter-spacing: -0.035em; line-height: 1.2; overflow-wrap: anywhere; }
+.wordSm { font-size: var(--fs-4); letter-spacing: -0.03em; }
+.ipa { font-size: var(--fs-3); font-weight: 500; color: var(--text-3); margin-top: 0.25rem; }
+.meaning { font-size: var(--fs-5); font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
 .prompt .play { min-height: 52px; }
 .options { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
 .option {
-  display: flex; align-items: center; gap: 0.75rem; text-align: left; min-height: 56px; padding: 0.75rem 1rem;
-  font-family: var(--serif); font-style: italic; font-size: var(--fs-3); color: var(--accent);
-  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); cursor: pointer;
+  display: flex; align-items: center; gap: 0.75rem; text-align: left; min-height: 58px; padding: 0.75rem 1rem;
+  font-size: 1.125rem; font-weight: 600; color: var(--text);
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); cursor: pointer;
+  transition: border-color var(--ease), background var(--ease);
 }
 .option:not(:disabled):active { background: var(--fill); }
 .option:disabled { cursor: default; }
-.optionEn { font-style: normal; font-weight: 500; color: var(--text); }
+.optionEn { font-weight: 700; letter-spacing: -0.01em; }
 .key { flex-shrink: 0; width: 1.5rem; height: 1.5rem; display: grid; place-items: center;
-  font-family: var(--sans); font-style: normal; font-weight: 400; font-size: var(--fs-1); color: var(--text-2); }
+  font-weight: 600; font-size: var(--fs-1); color: var(--text-3); }
 @media (hover: none) { .key { display: none; } }
-@media (hover: hover) { .option:not(:disabled):hover { border-color: var(--accent); } }
-.option.right { border-color: var(--accent); background: var(--accent-soft); }
-.option.wrong { border-color: var(--danger); background: var(--danger-soft); color: var(--text); }
+@media (hover: hover) { .option:not(:disabled):hover { border-color: var(--ink); } }
+/* Right and wrong are answered in marker ink: green swipe, pink swipe */
+.option.right { border-color: var(--ink); background: var(--mk-green); }
+.option.wrong { border-color: var(--ink); background: var(--mk-pink); }
 .option.right::after, .option.wrong::after {
   content: ""; margin-left: auto; width: 20px; height: 20px; flex-shrink: 0; background: currentColor;
   -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat;
 }
-.option.right { --mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
-.option.wrong { --mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
-.option.right::after { color: var(--accent); }
-.option.wrong::after { color: var(--danger); }
+.option.right { --mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+.option.wrong { --mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
 .result { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
 .result:empty { display: none; }
-.verdict { font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
-.ok { color: var(--accent); }
+.verdict { font-size: 1rem; font-weight: 800; margin-bottom: 0.25rem; }
+.ok { color: var(--ok); }
 .no { color: var(--danger); }
-.english { font-family: var(--serif); font-style: italic; font-size: var(--fs-3); color: var(--accent);
-  white-space: pre-line; padding-left: 0.6em; }
+.english { font-size: var(--fs-3); font-weight: 500; color: var(--text-2); white-space: pre-line; }
 .actions { display: flex; gap: 0.5rem; width: 100%; margin-top: 0.75rem; }
 .actions > button { flex: 1; }
-.quiz .stop { align-self: center; color: var(--text-2); font-weight: 500; }
+.quiz .stop { align-self: center; color: var(--text-2); }

@@ -1,3 +1,3 @@
-.block { display: flex; flex-direction: column; gap: 0.125rem; margin-top: 1.25rem; padding-left: 0.875rem; border-left: 2px solid var(--rule); text-align: left; }
-.en { font-family: var(--serif); font-size: 1.0625rem; line-height: 1.4; }
-.ua { font-family: var(--serif); font-style: italic; font-size: var(--fs-2); line-height: 1.4; color: var(--accent); }
+.block { display: flex; flex-direction: column; gap: 0.125rem; margin-top: 1.25rem; padding: 0.75rem 1rem; border-radius: var(--radius); background: var(--surface-2); text-align: left; width: 100%; }
+.en { font-size: 1.0625rem; font-weight: 500; line-height: 1.4; }
+.ua { font-size: var(--fs-2); line-height: 1.4; color: var(--text-2); }

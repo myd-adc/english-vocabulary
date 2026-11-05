@@ -1,19 +1,30 @@
-.main {
-  flex: 1; display: flex; flex-direction: column; gap: 2rem;
-  padding: 0.5rem max(1.25rem, env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom))
-    max(1.25rem, env(safe-area-inset-left));
-}
-.review {
-  min-height: 40px; padding: 0 0.875rem; border: 1px solid var(--rule); border-radius: var(--radius);
-  background: transparent; color: var(--accent); font-size: 0.9375rem; font-weight: 500; cursor: pointer;
-}
-.review:active { background: var(--fill); }
-.note { color: var(--text-2); font-size: 0.9375rem; margin: 0.75rem 0 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.count { font-size: 14px; font-weight: 500; color: var(--text-3); margin-right: 0.25rem; white-space: nowrap; }
+.note { color: var(--text-2); font-size: 0.9375rem; margin: 0.5rem 1.25rem 0; }
 .note[hidden] { display: none; }
 
-@media (min-width: 900px) {
-  .main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 4rem; row-gap: 1.25rem;
-    align-items: start; padding-top: 2rem; }
-  .topics { grid-column: 2; grid-row: 1; }
-  .review:hover { background: var(--fill); }
+/* Topic chips: one scrolling row, no scrollbar */
+.chips {
+  display: flex; gap: 8px; padding: 8px 16px 12px; overflow-x: auto; scrollbar-width: none;
+  scroll-padding: 0 16px; overscroll-behavior-x: contain;
 }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px;
+  border: none; border-radius: 999px; background: var(--surface-2); color: var(--text);
+  font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background var(--ease);
+}
+.chip:active { background: var(--line); }
+.chip.on { background: var(--ink); color: var(--on-ink); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip.on .dot { box-shadow: 0 0 0 1.5px var(--on-ink); }
+
+.list { display: flex; flex-direction: column; }
+.pad { padding: 0 1.25rem; }
+.more {
+  min-height: 56px; background: none; border: none; color: var(--text-2); font-weight: 600; cursor: pointer;
+  border-bottom: 1px solid var(--line-soft);
+}
+.empty { min-height: 36vh; }
+.empty h2 { font-size: var(--fs-4); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; color: var(--text); }
+.empty p { max-width: 30ch; }

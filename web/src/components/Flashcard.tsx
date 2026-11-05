@@ -7,6 +7,7 @@ import { shortMeaning } from "../lib/words";
 import { Button } from "./Button";
 import { ExampleBlock } from "./ExampleBlock";
 import { Icon } from "./Icon";
+import { Mark } from "./Mark";
 import styles from "./Flashcard.module.css";
 
 const SWIPE_THRESHOLD = 90;
@@ -133,7 +134,7 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
               <div className={styles.lang}>{reverse ? "Українська" : "English"}</div>
               <div className={styles.wordRow}>
                 <div className={styles.word} lang={reverse ? "uk" : "en"}>
-                  {reverse ? shortMeaning(card) : card.word}
+                  {reverse ? shortMeaning(card) : <Mark topic={card.section}>{card.word}</Mark>}
                 </div>
               </div>
               {(reverse ? card.part_of_speech : card.transcription) && (
@@ -143,9 +144,13 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
             </div>
             <div className={styles.back}>
               <div className={styles.lang}>{reverse ? "English" : "Українська"}</div>
-              {!reverse && <div className={styles.backWord} lang="en">{card.word}</div>}
+              {!reverse && (
+                <div className={styles.backWord} lang="en">
+                  <Mark topic={card.section}>{card.word}</Mark>
+                </div>
+              )}
               <div className={styles.definition} lang={reverse ? "en" : "uk"}>
-                {reverse ? card.word : card.translation}
+                {reverse ? <Mark topic={card.section}>{card.word}</Mark> : card.translation}
               </div>
               {reverse && card.transcription && <div className={styles.ipa}>{card.transcription}</div>}
               {!reverse && card.part_of_speech && <div className={styles.pos}>{card.part_of_speech}</div>}

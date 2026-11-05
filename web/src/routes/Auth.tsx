@@ -4,6 +4,7 @@ import { ALREADY_REGISTERED, authErrorMessage } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { Button } from "../components/Button";
 import { LinkButton } from "../components/LinkButton";
+import { Mark } from "../components/Mark";
 import { Segmented } from "../components/Segmented";
 import { TextInput } from "../components/TextInput";
 import styles from "./Auth.module.css";
@@ -16,7 +17,7 @@ export function AuthFrame({
   children,
 }: {
   title: string;
-  /** Small italic line beneath the title, like a gloss under a headword. */
+  /** Small line beneath the title, like a gloss under a headword. */
   gloss?: string;
   lead?: string;
   children: ReactNode;
@@ -26,7 +27,9 @@ export function AuthFrame({
       <div className={styles.card}>
         <img src="/icon-192.png" alt="" className={styles.logo} />
         <div className={styles.titleBlock}>
-          <h1>{title}</h1>
+          <h1>
+            <Mark ink="yellow">{title}</Mark>
+          </h1>
           {gloss && <p className={styles.gloss}>{gloss}</p>}
         </div>
         {lead && <p className={styles.lead}>{lead}</p>}

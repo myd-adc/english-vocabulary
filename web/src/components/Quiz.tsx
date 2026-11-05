@@ -8,6 +8,7 @@ import { shortMeaning } from "../lib/words";
 import { Button } from "./Button";
 import { ExampleBlock } from "./ExampleBlock";
 import { Icon } from "./Icon";
+import { Mark } from "./Mark";
 import { LinkButton } from "./LinkButton";
 import styles from "./Quiz.module.css";
 
@@ -81,7 +82,7 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
           <>
             <p className={styles.label}>Що означає це слово?</p>
             <span className={styles.word} lang="en">
-              {card.word}
+              <Mark topic={card.section}>{card.word}</Mark>
             </span>
             {card.transcription && <p className={styles.ipa}>{card.transcription}</p>}
           </>
@@ -130,7 +131,7 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
           <>
             <p className={cx(styles.verdict, correct ? styles.ok : styles.no)}>{correct ? "Правильно" : "Неправильно"}</p>
             <span className={cx(styles.word, styles.wordSm)} lang="en">
-              {card.word}
+              <Mark topic={card.section}>{card.word}</Mark>
             </span>
             {card.transcription && <p className={styles.ipa}>{card.transcription}</p>}
             <p className={styles.english}>{card.translation}</p>

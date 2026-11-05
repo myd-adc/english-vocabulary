@@ -120,7 +120,7 @@ export function Study() {
 
   return (
     <Page>
-      <Header title="Навчання" width="study">
+      <Header title="Навчання">
         <span className={styles.progress}>{progress}</span>
       </Header>
       <main className={styles.main}>

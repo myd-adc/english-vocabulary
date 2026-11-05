@@ -1,8 +1,10 @@
 import { useState } from "react";
 import type { Word } from "../api/types";
+import { markerFor } from "../lib/marker";
 import { FALLBACK_TOPIC } from "../lib/words";
 import { Button } from "./Button";
 import { ErrorMsg } from "./ErrorMsg";
+import { Mark } from "./Mark";
 import type { QuickResultState } from "./quick";
 import styles from "./QuickResult.module.css";
 
@@ -28,7 +30,11 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
     case "pending":
       return (
         <>
-          <h3 className={styles.word}>{result.input}</h3>
+          <h3 className={styles.word}>
+            <Mark ink="zinc" lang="en">
+              {result.input}
+            </Mark>
+          </h3>
           <p className={`${styles.status} ${styles.pending}`}>Перекладаю…</p>
         </>
       );
@@ -49,7 +55,11 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
       const topic = word.section || FALLBACK_TOPIC;
       return (
         <>
-          <h3 className={styles.word}>{word.word}</h3>
+          <h3 className={styles.word}>
+            <Mark topic={word.section} draw={status === "created"} lang="en">
+              {word.word}
+            </Mark>
+          </h3>
           <Parts word={word} />
           {input && input.trim().toLowerCase() !== word.word.toLowerCase() && (
             <p className={styles.note}>{`Ви ввели «${input.trim()}» → збережено «${word.word}»`}</p>
@@ -61,6 +71,7 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
               aria-label={`Тема: ${topic}. Змінити тему`}
               onClick={() => onEdit(word, "section")}
             >
+              <span className={styles.dot} style={{ background: `var(--mk-${markerFor(topic)})` }} aria-hidden="true" />
               {topic}
             </button>
             <span className={styles.status}>{status === "exists" ? "Уже є у словнику" : "Збережено"}</span>

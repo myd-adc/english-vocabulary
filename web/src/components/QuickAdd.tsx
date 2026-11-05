@@ -7,13 +7,14 @@ import { sectionsKey } from "../api/hooks";
 import type { Word } from "../api/types";
 import { cx } from "../lib/cx";
 import { FALLBACK_TOPIC } from "../lib/words";
-import { Button } from "./Button";
+import { Icon } from "./Icon";
+import { Spinner } from "./Skeleton";
 import { useEditSheet } from "./EditSheet";
 import { useQuick } from "./quick";
 import { QuickResult } from "./QuickResult";
 import styles from "./QuickAdd.module.css";
 
-const PLACEHOLDER = "Англійське слово";
+const PLACEHOLDER = "Яке слово зустріли?";
 
 /** Add-a-word input with the result card below it. */
 export function QuickAdd() {
@@ -106,11 +107,11 @@ export function QuickAdd() {
 
   return (
     <div className={styles.quick}>
-      <form className={styles.form} noValidate onSubmit={submit}>
+      <form className={cx(styles.form, empty && styles.formEmpty)} noValidate onSubmit={submit}>
         <input
           ref={inputRef}
           type="text"
-          className={cx(styles.input, empty && styles.inputEmpty)}
+          className={styles.input}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -122,11 +123,11 @@ export function QuickAdd() {
           autoComplete="off"
           enterKeyHint="done"
           placeholder={empty ? "Спершу введіть англійське слово" : PLACEHOLDER}
-          aria-label={PLACEHOLDER}
+          aria-label="Англійське слово"
         />
-        <Button type="submit" className={styles.add} disabled={busy} busy={busy}>
-          {busy ? "Додаю…" : "Додати"}
-        </Button>
+        <button type="submit" className={styles.add} disabled={busy} aria-busy={busy} aria-label={busy ? "Додаю…" : "Додати"}>
+          {busy ? <Spinner /> : <Icon name="plus" size={24} />}
+        </button>
       </form>
       <QuickResult result={result} busy={busy} onManualSave={saveManual} onEdit={edit} onDelete={remove} />
     </div>

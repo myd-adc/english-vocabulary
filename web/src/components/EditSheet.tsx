@@ -6,6 +6,7 @@ import { useInvalidateWords, useSections } from "../api/hooks";
 import type { Word, WordFields } from "../api/types";
 import { FALLBACK_TOPIC } from "../lib/words";
 import { Button } from "./Button";
+import { Mark } from "./Mark";
 import { Field, Sheet, SheetActions, SheetError, SheetTitle } from "./Sheet";
 import styles from "./EditSheet.module.css";
 import sheetStyles from "./Sheet.module.css";
@@ -167,7 +168,7 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
       {children}
       <Sheet open={open} onClose={close} titleId="edit-title">
         <SheetTitle id="edit-title">{editing ? "Редагувати слово" : "Нове слово"}</SheetTitle>
-        <EntryPreview word={values.word} translation={values.main_translation || values.translation} />
+        <EntryPreview word={values.word} topic={values.section} translation={values.main_translation || values.translation} />
         {FIELDS.map(({ key, label, kind, placeholder }) => {
           const id = `edit-${key}`;
           const common = {
@@ -213,14 +214,16 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
 }
 
 /** The entry as it will look: headword with its gloss beneath. Hidden until there is a word. */
-function EntryPreview({ word, translation }: { word: string; translation: string }) {
+function EntryPreview({ word, topic, translation }: { word: string; topic: string; translation: string }) {
   const w = word.trim();
   if (!w) return null;
   const gloss = translation.split("\n").find((l) => l.trim()) ?? "";
   return (
     <div className={sheetStyles.preview} aria-hidden="true">
-      <span className={sheetStyles.previewWord} lang="en">
-        {w}
+      <span className={sheetStyles.previewWord}>
+        <Mark topic={topic} lang="en">
+          {w}
+        </Mark>
       </span>
       {gloss && <span className={sheetStyles.previewGloss}>{gloss.trim()}</span>}
     </div>
