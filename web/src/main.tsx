@@ -18,10 +18,17 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")!).render(
+// Wait briefly for Onest so the first screen does not paint in a fallback face and then jump.
+// Capped, so a slow font never holds the app back; after the first visit it comes from the cache.
+const fontsReady = Promise.race([
+  document.fonts?.load('700 1em "Onest Variable"').catch(() => undefined),
+  new Promise((resolve) => setTimeout(resolve, 700)),
+]);
+
+void fontsReady.then(() => createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,
-);
+));

@@ -28,3 +28,8 @@
 .empty { min-height: 36vh; }
 .empty h2 { font-size: var(--fs-4); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; color: var(--text); }
 .empty p { max-width: 30ch; }
+
+/* Loaded content arrives in one short fade, never piece by piece */
+.ready { animation: appear 180ms ease-out both; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ready { animation: none; } }

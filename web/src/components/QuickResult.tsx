@@ -56,7 +56,7 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
       return (
         <>
           <h3 className={styles.word}>
-            <Mark topic={word.section} draw={status === "created"} lang="en">
+            <Mark topic={word.section} drawKey={status === "created" ? word.id : undefined} lang="en">
               {word.word}
             </Mark>
           </h3>

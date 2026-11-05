@@ -7,12 +7,12 @@ import { Mark } from "./Mark";
 import styles from "./WordRow.module.css";
 
 /** One word in a list: headword on its topic's swipe, gloss beneath. Tap the text to edit, the speaker to listen. */
-export function WordRow({ word, onEdit, fresh }: { word: Word; onEdit: (word: Word) => void; fresh?: boolean }) {
+export function WordRow({ word, onEdit }: { word: Word; onEdit: (word: Word) => void }) {
   return (
     <div className={styles.row}>
       <button type="button" className={styles.main} onClick={() => onEdit(word)}>
         <span className={styles.title}>
-          <Mark topic={word.section} draw={fresh} lang="en">
+          <Mark topic={word.section} lang="en">
             {word.word}
           </Mark>
         </span>

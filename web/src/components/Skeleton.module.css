@@ -6,9 +6,16 @@
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
 .tile { height: 64px; margin: 0 1.25rem 0.5rem; border-radius: var(--radius); }
-.row { height: 44px; margin: 14px 20px 18px; border-radius: 10px; width: 55%; }
+/* A word row: headword bar over a gloss bar, same height as the real row so nothing jumps */
+.rowBox { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 79px; padding: 0 20px; border-bottom: 1px solid var(--line-soft); }
+.head { height: 20px; border-radius: 6px; }
+.sub { height: 13px; border-radius: 5px; }
+.chips { display: flex; gap: 8px; padding: 8px 16px 12px; overflow: hidden; }
+.chip { height: 34px; border-radius: 999px; flex: none; }
 .spinner {
   display: inline-block; width: 1.25rem; height: 1.25rem; border-radius: 50%;
   border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }

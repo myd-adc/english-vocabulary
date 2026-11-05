@@ -8,7 +8,6 @@ import { Header } from "../components/Header";
 import { Mark } from "../components/Mark";
 import { Menu } from "../components/Menu";
 import { Page } from "../components/Page";
-import { useQuick } from "../components/quick";
 import { QuickAdd } from "../components/QuickAdd";
 import { Skeleton } from "../components/Skeleton";
 import { WordRow } from "../components/WordRow";
@@ -18,17 +17,14 @@ import { pluralWords } from "../lib/plural";
 import styles from "./Home.module.css";
 
 const SHOWN = 40;
-/** Words whose swipe has already been drawn this session: it is drawn once. */
-const drawn = new Set<number>();
 
 export function Home() {
   const navigate = useNavigate();
   const openEdit = useEditSheet();
-  const { result } = useQuick();
   const [note, setNote] = useState("");
   const [topic, setTopic] = useState("");
-  const [fresh, setFresh] = useState<number | null>(null);
-  const sections = useSections().data ?? [];
+  const sectionsQuery = useSections();
+  const sections = sectionsQuery.data ?? [];
   const total = sections.reduce((sum, s) => sum + s.words, 0);
   const { data, isPending, isError } = useWords(topic, "");
   const words = data?.words ?? [];
@@ -40,28 +36,21 @@ export function Home() {
     return () => clearTimeout(t);
   }, [note]);
 
-  // A word that has just been added gets its swipe drawn, once.
-  const createdId = result?.status === "created" ? result.word.id : null;
-  useEffect(() => {
-    if (createdId !== null && !drawn.has(createdId)) {
-      drawn.add(createdId);
-      setFresh(createdId);
-    }
-  }, [createdId]);
-
   // A topic that disappeared (renamed, merged) falls back to everything.
   const topicGone = topic !== "" && sections.length > 0 && !sections.some((s) => s.name === topic);
   useEffect(() => {
     if (topicGone) setTopic("");
   }, [topicGone]);
 
+  // Topics, count and words arrive together: one skeleton until both have loaded, then everything at once.
+  const loading = isPending || sectionsQuery.isPending;
   const shown = words.slice(0, SHOWN);
-  const empty = !isPending && !isError && total === 0 && sections.length === 0 && words.length === 0;
+  const empty = !loading && !isError && total === 0 && sections.length === 0 && words.length === 0;
 
   return (
     <Page>
       <Header title="Glossa" home>
-        {total > 0 && <span className={styles.count}>{pluralWords(total)}</span>}
+        {!loading && total > 0 && <span className={styles.count}>{pluralWords(total)}</span>}
         <Menu onNote={setNote} />
       </Header>
       <main className={styles.main}>
@@ -69,7 +58,8 @@ export function Home() {
         <p className={styles.note} role="status" hidden={!note}>
           {note}
         </p>
-        {sections.length > 0 && (
+        {loading && <Skeleton kind="chips" />}
+        {!loading && sections.length > 0 && (
           <div className={styles.chips} role="group" aria-label="Теми">
             <button type="button" className={cx(styles.chip, topic === "" && styles.on)} aria-pressed={topic === ""} onClick={() => setTopic("")}>
               Усі
@@ -88,16 +78,15 @@ export function Home() {
             ))}
           </div>
         )}
-        <section className={styles.list} aria-label="Нові слова">
-          {isPending && <Skeleton kind="row" count={5} />}
+        <section className={cx(styles.list, !loading && styles.ready)} aria-label="Нові слова" aria-busy={loading}>
+          {loading && <Skeleton kind="row" count={6} />}
           {isError && (
             <div className={styles.pad}>
               <ErrorMsg offlineAware>Не вдалося завантажити слова.</ErrorMsg>
             </div>
           )}
-          {shown.map((w) => (
-            <WordRow key={w.id} word={w} onEdit={(word) => openEdit(word)} fresh={w.id === fresh} />
-          ))}
+          {!loading &&
+            shown.map((w) => <WordRow key={w.id} word={w} onEdit={(word) => openEdit(word)} />)}
           {words.length > SHOWN && (
             <button
               type="button"
@@ -115,7 +104,7 @@ export function Home() {
               <p>Напишіть слово, яке щойно зустріли, у поле вгорі. Переклад і тема з'являться самі.</p>
             </Centered>
           )}
-          {!isPending && !isError && !empty && words.length === 0 && (
+          {!loading && !isError && !empty && words.length === 0 && (
             <Centered className={styles.empty}>
               <p>У цій темі слів немає.</p>
             </Centered>
