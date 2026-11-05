@@ -1,40 +1,58 @@
-"""Generate the PWA icons (run from the repo root on macOS: python tools/make_icons.py).
+"""Generate the Glossa PWA icons (run from the repo root: python tools/make_icons.py [path/to/EBGaramond.ttf]).
 
-The mark is a dictionary pronunciation: a serif "d" with the IPA stress mark before it, as in
-/ˈdɪk/. Paper on the app's ink green; Iowan Old Style Black, which is also in the app's serif stack.
+The mark is a double-storey EB Garamond lowercase "g", paper on lapis. The font is not committed:
+pass a TTF/OTF as the first argument or in the EB_GARAMOND_TTF environment variable
+(the variable-weight file from https://github.com/google/fonts/tree/main/ofl/ebgaramond works).
 """
+import os
+import sys
+
 from PIL import Image, ImageDraw, ImageFont
 
-FONT = ("/System/Library/Fonts/Supplemental/Iowan Old Style.ttc", 4)  # Iowan Old Style Black
-INK = "#1f5a47"
-PAPER = "#f2f3ef"
+LAPIS = "#2e44a8"
+PAPER = "#f4f5f7"
+WEIGHT = 500
 
 
-def draw(size: int, scale: float = 1.0) -> Image.Image:
+def font_path() -> str:
+    path = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("EB_GARAMOND_TTF", "")
+    if not path or not os.path.exists(path):
+        sys.exit("Pass the EB Garamond TTF as an argument or set EB_GARAMOND_TTF.")
+    return path
+
+
+def load_font(path: str, px: int) -> ImageFont.FreeTypeFont:
+    f = ImageFont.truetype(path, px)
+    try:
+        f.set_variation_by_axes([WEIGHT])  # variable font: weight axis
+    except (OSError, AttributeError):
+        pass  # static font
+    return f
+
+
+def draw(path: str, size: int, scale: float = 1.0) -> Image.Image:
     """scale < 1 shrinks the mark towards the centre (maskable icons need an 80% safe zone)."""
-    img = Image.new("RGB", (size, size), INK)
+    img = Image.new("RGB", (size, size), LAPIS)
     d = ImageDraw.Draw(img)
     s = size * scale
-    f = ImageFont.truetype(FONT[0], int(s * 0.70), index=FONT[1])
-    left, top, right, _ = d.textbbox((0, 0), "d", font=f, anchor="ls")
-    height = -top
-    x = (size - (right - left)) / 2 + s * 0.06 - left
-    y = size / 2 + height / 2 - s * 0.01
-    d.text((x, y), "d", font=f, fill=PAPER, anchor="ls")
-    # stress mark: a thin upright stroke at ascender height, just before the letter
-    stroke_w, stroke_h = max(1.0, s * 0.028), s * 0.15
-    sx, sy = x + left - s * 0.12, y - height + s * 0.01
-    d.rectangle([sx, sy, sx + stroke_w, sy + stroke_h], fill=PAPER)
+    f = load_font(path, int(s * 0.92))
+    left, top, right, bottom = d.textbbox((0, 0), "g", font=f, anchor="ls")
+    # centre the glyph's ink box in the square (it has a descender, so centre the box, not the baseline)
+    x = (size - (right - left)) / 2 - left
+    y = (size - (bottom - top)) / 2 - top
+    d.text((x, y), "g", font=f, fill=PAPER, anchor="ls")
     return img
 
 
-def make(size: int, path: str, scale: float = 1.0) -> None:
+def make(path: str, size: int, out: str, scale: float = 1.0) -> None:
     # draw large and downsample, so small sizes stay crisp
-    draw(1024, scale).resize((size, size), Image.LANCZOS).save(path)
+    draw(path, 1024, scale).resize((size, size), Image.LANCZOS).save(out)
 
 
-make(512, "web/public/icon-512.png")
-make(192, "web/public/icon-192.png")
-make(512, "web/public/icon-maskable-512.png", scale=0.78)
-make(180, "web/public/apple-touch-icon.png")
-make(64, "web/public/favicon.png")
+if __name__ == "__main__":
+    p = font_path()
+    make(p, 512, "web/public/icon-512.png")
+    make(p, 192, "web/public/icon-192.png")
+    make(p, 512, "web/public/icon-maskable-512.png", scale=0.78)
+    make(p, 180, "web/public/apple-touch-icon.png")
+    make(p, 64, "web/public/favicon.png")
