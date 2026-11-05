@@ -1,2 +1,4 @@
-.page { display: flex; flex-direction: column; min-height: 100vh; width: 100%; min-width: 0;
-  max-width: var(--column); margin: 0 auto; }
+.page {
+  display: flex; flex-direction: column; min-height: 100vh; width: 100%; min-width: 0;
+  max-width: var(--column); margin: 0 auto; padding-bottom: var(--tabbar-space, 0px);
+}

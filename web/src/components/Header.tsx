@@ -3,29 +3,30 @@ import { useNavigate } from "react-router";
 import { cx } from "../lib/cx";
 import { Icon } from "./Icon";
 import { IconButton } from "./Button";
+import { Mark } from "./Mark";
 import styles from "./Header.module.css";
 
 interface Props {
   title: string;
-  /** Home has the big app title (h1) and no back button. */
+  /** A tab's own screen: big title on a yellow swipe, no back button. */
   home?: boolean;
-  /** Header width on desktop follows the page below it. */
-  width?: "browse" | "study";
-  /** Extra items after the title (progress, review button, menu). */
+  /** Where the back button goes (default: the home screen). */
+  back?: string;
+  /** Extra items after the title (count, progress, menu). */
   children?: ReactNode;
 }
 
-export function Header({ title, home, width = "browse", children }: Props) {
+export function Header({ title, home, back = "/", children }: Props) {
   const navigate = useNavigate();
   const Title = home ? "h1" : "h2";
   return (
-    <header className={cx(styles.header, !home && (width === "study" ? styles.study : styles.browse))}>
+    <header className={cx(styles.header, home && styles.home)}>
       {!home && (
-        <IconButton aria-label="Назад" onClick={() => navigate("/")}>
-          <Icon name="chevron-left" />
+        <IconButton aria-label="Назад" className={styles.back} onClick={() => navigate(back)}>
+          <Icon name="chevron-left" size={24} />
         </IconButton>
       )}
-      <Title>{title}</Title>
+      <Title>{home ? <Mark ink="yellow">{title}</Mark> : title}</Title>
       {children}
     </header>
   );

@@ -5,6 +5,7 @@ import { Review } from "./routes/Review";
 import { RootLayout } from "./routes/RootLayout";
 import { Study } from "./routes/Study";
 import { TopicRoute } from "./routes/Topic";
+import { Topics } from "./routes/Topics";
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +13,7 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { index: true, element: <Home /> },
+      { path: "topics", element: <Topics /> },
       { path: "topic/:name?", element: <TopicRoute /> },
       { path: "connect", element: <Connect /> },
       { path: "review", element: <Review /> },

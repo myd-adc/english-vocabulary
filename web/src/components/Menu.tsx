@@ -6,7 +6,6 @@ import { pluralWords } from "../lib/plural";
 import { THEME_LABELS, useTheme } from "../lib/theme";
 import { FALLBACK_TOPIC } from "../lib/words";
 import { IconButton } from "./Button";
-import { Icon } from "./Icon";
 import styles from "./Menu.module.css";
 
 /** Header "⋯" menu: sort untopiced words, switch theme, sign out. */
@@ -78,7 +77,7 @@ export function Menu({ onNote }: { onNote: (note: string) => void }) {
         aria-controls="app-menu"
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name="more" />
+        <span className={styles.avatar}>{(email?.[0] ?? "G").toUpperCase()}</span>
       </IconButton>
       {open && (
         <div id="app-menu" className={styles.menu} role="menu" aria-label="Меню" ref={menuRef}>

@@ -1,0 +1,14 @@
+.main { flex: 1; padding-top: 0.5rem; padding-bottom: 6rem; }
+.count { font-size: 14px; font-weight: 500; color: var(--text-3); }
+.fab {
+  position: fixed; z-index: 30; right: max(1.25rem, env(safe-area-inset-right));
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 1rem);
+  width: 56px; height: 56px; border-radius: var(--radius-lg); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--on-ink);
+  transition: transform var(--ease);
+}
+.fab:active { transform: scale(0.94); }
+
+@media (min-width: 900px) {
+  .fab { right: max(2rem, calc((100vw - var(--rail-w) - var(--column)) / 2 - 4rem)); bottom: 2rem; }
+}

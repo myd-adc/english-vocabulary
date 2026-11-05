@@ -40,7 +40,7 @@ function Topic({ name }: { name: string }) {
 
   return (
     <Page>
-      <Header title={isAll ? "Усі слова" : name} />
+      <Header title={isAll ? "Усі слова" : name} back="/topics" />
       <main className={styles.main}>
         {!isAll && (
           <div className={styles.actions}>
@@ -77,7 +77,7 @@ function Topic({ name }: { name: string }) {
         </div>
       </main>
       <button type="button" className={styles.fab} aria-label="Додати слово" onClick={() => openEdit(null, { defaultSection: name })}>
-        <Icon name="plus" />
+        <Icon name="plus" size={26} />
       </button>
       {!isAll && (
         <RenameSheet

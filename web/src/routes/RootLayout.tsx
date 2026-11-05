@@ -8,6 +8,7 @@ import { Centered } from "../components/Centered";
 import { EditSheetProvider } from "../components/EditSheet";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { QuickProvider } from "../components/quick";
+import { AppShell } from "../components/TabBar";
 import { useAuth } from "../lib/auth";
 import { AuthScreen, SetPassword } from "./Auth";
 import { NoAccess } from "./NoAccess";
@@ -47,7 +48,9 @@ function AllowedOnly({ email }: { email: string }) {
     return (
       <QuickProvider>
         <EditSheetProvider>
-          <Outlet />
+          <AppShell>
+            <Outlet />
+          </AppShell>
         </EditSheetProvider>
       </QuickProvider>
     );

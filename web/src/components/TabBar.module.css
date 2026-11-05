@@ -1,0 +1,41 @@
+.shell { min-height: 100vh; }
+
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--bg); border-top: 1px solid var(--line);
+}
+.brand { display: none; }
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--text-3); text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: 0.005em;
+  -webkit-tap-highlight-color: transparent; transition: color var(--ease);
+}
+.tab:active { transform: scale(0.96); }
+.active { color: var(--text); }
+.label { position: relative; padding: 0 0.3em; }
+/* The active tab is marked the way the app marks everything: a swipe of yellow behind the label. */
+.active .label::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 45%; z-index: -1;
+  background: var(--mk-yellow); border-radius: 0.1em 0.4em 0.15em 0.3em; transform: rotate(-1deg);
+}
+.tab { isolation: isolate; }
+
+/* Wide screens: a left rail, the content stays a centred column in the space beside it. */
+@media (min-width: 900px) {
+  .withTabs { padding-left: var(--rail-w); }
+  .tabs {
+    right: auto; top: 0; width: var(--rail-w); height: auto; grid-template-columns: 1fr; align-content: start;
+    gap: 4px; padding: 2rem 1rem; border-top: none; border-right: 1px solid var(--line);
+  }
+  .brand { display: block; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; padding: 0 0.75rem 1.5rem; }
+  .tab {
+    flex-direction: row; justify-content: flex-start; gap: 0.75rem; height: 48px; padding: 0 0.75rem;
+    border-radius: var(--radius); font-size: 15px;
+  }
+  .tab:active { transform: none; }
+  .tab:hover { background: var(--fill); }
+  .active .label::before { height: 40%; }
+}
