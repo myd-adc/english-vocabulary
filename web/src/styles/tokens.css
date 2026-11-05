@@ -47,7 +47,7 @@
   --rail-w: 232px;
 }
 
-/* Dark: graphite ground. Same hues, laid down as translucent ink so light text stays legible on them. */
+/* Dark: graphite ground. Markers become deep, saturated inks so light text stays legible on them. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
@@ -65,13 +65,13 @@
     --danger: #ff8f86;
     --danger-soft: rgba(255, 143, 134, 0.16);
     --ok: #7fe3a0;
-    --mk-yellow: rgba(255, 233, 74, 0.4);
-    --mk-pink: rgba(255, 156, 203, 0.42);
-    --mk-green: rgba(140, 245, 168, 0.36);
-    --mk-orange: rgba(255, 197, 110, 0.4);
-    --mk-blue: rgba(143, 211, 255, 0.4);
-    --mk-violet: rgba(201, 167, 255, 0.46);
-    --mk-zinc: rgba(244, 244, 245, 0.16);
+    --mk-yellow: #857400;
+    --mk-pink: #9e2f6c;
+    --mk-green: #1c7a43;
+    --mk-orange: #9a560c;
+    --mk-blue: #1d5f99;
+    --mk-violet: #5f3aa8;
+    --mk-zinc: #3a3a40;
   }
 }
 :root[data-theme="dark"] {
@@ -90,13 +90,13 @@
   --danger: #ff8f86;
   --danger-soft: rgba(255, 143, 134, 0.16);
   --ok: #7fe3a0;
-  --mk-yellow: rgba(255, 233, 74, 0.4);
-  --mk-pink: rgba(255, 156, 203, 0.42);
-  --mk-green: rgba(140, 245, 168, 0.36);
-  --mk-orange: rgba(255, 197, 110, 0.4);
-  --mk-blue: rgba(143, 211, 255, 0.4);
-  --mk-violet: rgba(201, 167, 255, 0.46);
-  --mk-zinc: rgba(244, 244, 245, 0.16);
+  --mk-yellow: #857400;
+  --mk-pink: #9e2f6c;
+  --mk-green: #1c7a43;
+  --mk-orange: #9a560c;
+  --mk-blue: #1d5f99;
+  --mk-violet: #5f3aa8;
+  --mk-zinc: #3a3a40;
 }
 :root[data-theme="light"] { color-scheme: light; }
 
