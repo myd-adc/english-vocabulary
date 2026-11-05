@@ -120,10 +120,11 @@ function Parts({ word }: { word: Word }) {
           .split(",")
           .map((m) => m.trim())
           .filter(Boolean);
+        const hasMain = !!main && items.some((m) => m.toLowerCase() === main);
         return (
           <div key={n} className={i > 0 ? styles.part : `${styles.part} ${styles.partBare}`}>
             {i > 0 && <span className={styles.partPos}>{line.slice(0, i).trim()}</span>}
-            <span className={styles.partMeanings}>
+            <span className={hasMain ? `${styles.partMeanings} ${styles.hasMain}` : styles.partMeanings}>
               {items.map((m, k) => (
                 <span key={k}>
                   {k > 0 && ", "}

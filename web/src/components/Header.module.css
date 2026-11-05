@@ -1,14 +1,15 @@
 .header {
   display: flex; align-items: center; gap: 0.5rem;
-  height: calc(56px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(1rem, env(safe-area-inset-right)) 0
-    max(1rem, env(safe-area-inset-left));
+  height: calc(60px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(1.25rem, env(safe-area-inset-right)) 0
+    max(1.25rem, env(safe-area-inset-left));
   position: sticky; top: 0; z-index: 10; background: var(--bg);
 }
 .header h1, .header h2 {
-  flex: 1; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; letter-spacing: 0.005em;
+  flex: 1; font-family: var(--serif); font-size: var(--fs-3); font-weight: 500; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.header h1 { font-size: var(--fs-5); font-weight: 600; letter-spacing: -0.005em; }
 .header > button:first-child { margin-left: -0.75rem; }
 
 @media (min-width: 900px) {

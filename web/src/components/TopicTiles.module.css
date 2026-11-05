@@ -1,15 +1,16 @@
-.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+/* Topics are an index, not cards: names on the paper, hairlines between. */
+.tiles { display: grid; grid-template-columns: 1fr; column-gap: 2rem; }
 .tile {
-  display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem; min-height: 84px;
-  padding: 0.75rem 0.875rem; text-align: left; cursor: pointer; color: var(--text);
-  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; min-height: 60px;
+  padding: 0.75rem 0; text-align: left; cursor: pointer; color: var(--text);
+  background: none; border: none; border-bottom: 1px solid var(--rule);
 }
-.tile:active { background: var(--fill); }
-.name { font-family: var(--serif); font-size: 1.1875rem; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
-.count { font-size: 0.875rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.tile.all { background: transparent; }
+.tile:active .name { color: var(--accent); }
+.name { font-family: var(--serif); font-size: var(--fs-3); font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+.count { flex-shrink: 0; font-size: var(--fs-1); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tile.all .name { color: var(--accent); }
 
 @media (min-width: 900px) {
-  .tiles { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-  .tile:hover { background: var(--fill); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile:hover .name { color: var(--accent); }
 }

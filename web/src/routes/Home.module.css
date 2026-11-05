@@ -1,18 +1,18 @@
 .main {
-  flex: 1; display: flex; flex-direction: column; gap: 1.75rem;
-  padding: 1rem max(1.25rem, env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom))
+  flex: 1; display: flex; flex-direction: column; gap: 2rem;
+  padding: 0.5rem max(1.25rem, env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom))
     max(1.25rem, env(safe-area-inset-left));
 }
 .review {
-  min-height: 44px; padding: 0 0.875rem; border: 1px solid var(--rule); border-radius: var(--radius);
-  background: transparent; color: var(--accent); font-size: 0.9375rem; font-weight: 600; cursor: pointer;
+  min-height: 40px; padding: 0 0.875rem; border: 1px solid var(--rule); border-radius: var(--radius);
+  background: transparent; color: var(--accent); font-size: 0.9375rem; font-weight: 500; cursor: pointer;
 }
 .review:active { background: var(--fill); }
-.note { color: var(--text-2); font-size: 0.9375rem; margin: 0 0 0.75rem; }
+.note { color: var(--text-2); font-size: 0.9375rem; margin: 0.75rem 0 0; }
 .note[hidden] { display: none; }
 
 @media (min-width: 900px) {
-  .main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 3rem; row-gap: 1.25rem;
+  .main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 4rem; row-gap: 1.25rem;
     align-items: start; padding-top: 2rem; }
   .topics { grid-column: 2; grid-row: 1; }
   .review:hover { background: var(--fill); }

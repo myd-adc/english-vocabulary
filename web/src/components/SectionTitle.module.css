@@ -1,2 +1,2 @@
-.title { font-family: var(--serif); font-size: 1.125rem; font-weight: 600; padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--text); margin-bottom: 0.75rem; }
+.title { font-family: var(--serif); font-size: var(--fs-3); font-weight: 600; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule); margin-bottom: 0; }

@@ -1,6 +1,6 @@
 .input {
   width: 100%; min-height: 44px; padding: 0 0.875rem; border: 1px solid var(--rule);
-  border-radius: var(--radius); background: var(--surface); font-size: 1rem;
+  border-radius: var(--radius); background: var(--surface); font-size: var(--fs-2);
 }
-.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.input::placeholder { color: var(--text-2); opacity: 0.8; }
+.input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.input::placeholder { color: var(--text-2); opacity: 0.85; }

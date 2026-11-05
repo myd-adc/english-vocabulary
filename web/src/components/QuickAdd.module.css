@@ -1,15 +1,12 @@
-.quick { display: flex; flex-direction: column; gap: 1.75rem; min-width: 0; }
+.quick { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .form { display: flex; gap: 0.5rem; }
 .input {
-  flex: 1; min-width: 0; min-height: 48px; padding: 0 0.875rem; border: 1px solid var(--rule);
-  border-radius: var(--radius); background: var(--surface); font-size: 1.0625rem;
+  flex: 1; min-width: 0; min-height: 52px; padding: 0 1rem; border: 1px solid var(--rule);
+  border-radius: var(--radius); background: var(--surface); font-size: var(--fs-3);
+  font-family: var(--serif);
 }
-.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.input::placeholder { color: var(--text-2); opacity: 0.8; }
-.input.inputEmpty { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.input::placeholder { font-family: var(--sans); font-size: var(--fs-2); color: var(--text-2); opacity: 0.85; }
+.input.inputEmpty { border-color: var(--danger); }
 .input.inputEmpty::placeholder { color: var(--danger); opacity: 1; }
-.form .add { min-height: 48px; padding: 0 1rem; }
-
-@media (min-width: 900px) {
-  .quick { gap: 1.25rem; }
-}
+.form .add { min-height: 52px; padding: 0 1.25rem; }

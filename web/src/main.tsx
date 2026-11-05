@@ -3,6 +3,14 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router/dom";
 import { router } from "./router";
+import "@fontsource/eb-garamond/latin-400.css";
+import "@fontsource/eb-garamond/latin-500.css";
+import "@fontsource/eb-garamond/latin-600.css";
+import "@fontsource/eb-garamond/latin-400-italic.css";
+import "@fontsource/eb-garamond/cyrillic-400.css";
+import "@fontsource/eb-garamond/cyrillic-500.css";
+import "@fontsource/eb-garamond/cyrillic-600.css";
+import "@fontsource/eb-garamond/cyrillic-400-italic.css";
 import "./styles/tokens.css";
 import "./lib/speech"; // registers the iOS speech unlock on first tap
 

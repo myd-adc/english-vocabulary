@@ -8,6 +8,7 @@ import { FALLBACK_TOPIC } from "../lib/words";
 import { Button } from "./Button";
 import { Field, Sheet, SheetActions, SheetError, SheetTitle } from "./Sheet";
 import styles from "./EditSheet.module.css";
+import sheetStyles from "./Sheet.module.css";
 
 type FieldKey = keyof WordFields;
 type Values = Record<FieldKey, string>;
@@ -166,6 +167,7 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
       {children}
       <Sheet open={open} onClose={close} titleId="edit-title">
         <SheetTitle id="edit-title">{editing ? "Редагувати слово" : "Нове слово"}</SheetTitle>
+        <EntryPreview word={values.word} translation={values.main_translation || values.translation} />
         {FIELDS.map(({ key, label, kind, placeholder }) => {
           const id = `edit-${key}`;
           const common = {
@@ -207,5 +209,20 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
         )}
       </Sheet>
     </EditSheetContext.Provider>
+  );
+}
+
+/** The entry as it will look: headword with its gloss beneath. Hidden until there is a word. */
+function EntryPreview({ word, translation }: { word: string; translation: string }) {
+  const w = word.trim();
+  if (!w) return null;
+  const gloss = translation.split("\n").find((l) => l.trim()) ?? "";
+  return (
+    <div className={sheetStyles.preview} aria-hidden="true">
+      <span className={sheetStyles.previewWord} lang="en">
+        {w}
+      </span>
+      {gloss && <span className={sheetStyles.previewGloss}>{gloss.trim()}</span>}
+    </div>
   );
 }

@@ -1,2 +1,2 @@
-.link { background: none; border: none; cursor: pointer; color: var(--accent); font-weight: 600;
+.link { background: none; border: none; cursor: pointer; color: var(--accent); font-weight: 500;
   min-height: 44px; padding: 0 0.75rem; border-radius: var(--radius); }

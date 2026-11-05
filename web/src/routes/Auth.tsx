@@ -9,12 +9,26 @@ import { TextInput } from "../components/TextInput";
 import styles from "./Auth.module.css";
 
 /** Shared frame of every full-screen account screen: logo, title, optional lead text. */
-export function AuthFrame({ title, lead, children }: { title: string; lead?: string; children: ReactNode }) {
+export function AuthFrame({
+  title,
+  gloss,
+  lead,
+  children,
+}: {
+  title: string;
+  /** Small italic line beneath the title, like a gloss under a headword. */
+  gloss?: string;
+  lead?: string;
+  children: ReactNode;
+}) {
   return (
     <div className={styles.overlay}>
       <div className={styles.card}>
         <img src="/icon-192.png" alt="" className={styles.logo} />
-        <h1>{title}</h1>
+        <div className={styles.titleBlock}>
+          <h1>{title}</h1>
+          {gloss && <p className={styles.gloss}>{gloss}</p>}
+        </div>
         {lead && <p className={styles.lead}>{lead}</p>}
         {children}
       </div>
@@ -98,7 +112,7 @@ export function AuthScreen() {
   }
 
   return (
-    <AuthFrame title="Glossa" lead={mode === "forgot" ? "Надішлемо посилання для нового пароля." : undefined}>
+    <AuthFrame title="Glossa" gloss="глоса" lead={mode === "forgot" ? "Надішлемо посилання для нового пароля." : undefined}>
       {mode !== "forgot" && (
         <>
           <span id="auth-mode" className={styles.srOnly}>
