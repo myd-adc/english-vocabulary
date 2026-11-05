@@ -8,12 +8,19 @@ export type AuthState =
   | { status: "recovery" } // opened the password-reset link: must choose a new password
   | { status: "in"; session: Session };
 
+/** Dev-only screenshot bypass. `import.meta.env.DEV` is a build-time false in production, so this is dead code there. */
+const FAKE = import.meta.env.DEV && import.meta.env.VITE_DEV_FAKE_SESSION === "1";
+const FAKE_STATE = FAKE
+  ? ({ status: "in", session: { user: { id: "dev", email: "dev@example.com" } } } as unknown as AuthState)
+  : null;
+
 /** Current Supabase session (supabase-js keeps it in localStorage and refreshes the token). */
 export function useAuth(): { state: AuthState; finishRecovery: () => void } {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
+    if (FAKE) return;
     let alive = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (alive) setSession((s) => (s === undefined ? data.session : s));
@@ -32,7 +39,8 @@ export function useAuth(): { state: AuthState; finishRecovery: () => void } {
   const finishRecovery = useCallback(() => setRecovery(false), []);
 
   let state: AuthState;
-  if (session === undefined) state = { status: "loading" };
+  if (FAKE_STATE) state = FAKE_STATE;
+  else if (session === undefined) state = { status: "loading" };
   else if (!session) state = { status: "out" };
   else if (recovery) state = { status: "recovery" };
   else state = { status: "in", session };
@@ -43,6 +51,7 @@ export function useAuth(): { state: AuthState; finishRecovery: () => void } {
 export const signOut = () => supabase.auth.signOut({ scope: "local" });
 
 export async function currentAccessToken(): Promise<string | null> {
+  if (FAKE) return (import.meta.env.VITE_DEV_FAKE_TOKEN as string | undefined) ?? null;
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
