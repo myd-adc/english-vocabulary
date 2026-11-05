@@ -9,4 +9,4 @@
 .input::placeholder { font-family: var(--sans); font-size: var(--fs-2); color: var(--text-2); opacity: 0.85; }
 .input.inputEmpty { border-color: var(--danger); }
 .input.inputEmpty::placeholder { color: var(--danger); opacity: 1; }
-.form .add { min-height: 52px; padding: 0 1.25rem; }
+.form .add { min-height: 52px; min-width: 7.5rem; padding: 0 1.25rem; white-space: nowrap; }

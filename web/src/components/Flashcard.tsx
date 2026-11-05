@@ -143,6 +143,7 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
             </div>
             <div className={styles.back}>
               <div className={styles.lang}>{reverse ? "English" : "Українська"}</div>
+              {!reverse && <div className={styles.backWord} lang="en">{card.word}</div>}
               <div className={styles.definition} lang={reverse ? "en" : "uk"}>
                 {reverse ? card.word : card.translation}
               </div>

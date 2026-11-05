@@ -50,10 +50,10 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
       return (
         <>
           <h3 className={styles.word}>{word.word}</h3>
+          <Parts word={word} />
           {input && input.trim().toLowerCase() !== word.word.toLowerCase() && (
             <p className={styles.note}>{`Ви ввели «${input.trim()}» → збережено «${word.word}»`}</p>
           )}
-          <Parts word={word} />
           <div className={styles.meta}>
             <button
               type="button"
