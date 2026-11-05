@@ -21,7 +21,7 @@ export function Home() {
 
   return (
     <Page>
-      <Header title="LexiVocab" home>
+      <Header title="Dicktionary" home>
         <button type="button" className={styles.review} onClick={() => navigate("/review")}>
           Повторити
         </button>

@@ -98,7 +98,7 @@ export function AuthScreen() {
   }
 
   return (
-    <AuthFrame title="LexiVocab" lead={mode === "forgot" ? "Надішлемо посилання для нового пароля." : undefined}>
+    <AuthFrame title="Dicktionary" lead={mode === "forgot" ? "Надішлемо посилання для нового пароля." : undefined}>
       {mode !== "forgot" && (
         <>
           <span id="auth-mode" className={styles.srOnly}>

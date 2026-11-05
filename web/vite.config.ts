@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "apple-touch-icon.png"],
       manifest: {
-        name: "LexiVocab",
-        short_name: "LexiVocab",
+        name: "Dicktionary",
+        short_name: "Dicktionary",
         description: "Особистий англо-український словник з автоперекладом і темами",
         lang: "uk",
         start_url: "/",
