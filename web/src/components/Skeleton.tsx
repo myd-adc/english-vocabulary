@@ -17,6 +17,7 @@ export function Skeleton({ kind, count = 1 }: { kind: "tile" | "row" | "chips"; 
       <div key={i} className={styles.rowBox} aria-hidden="true">
         <span className={cx(styles.skeleton, styles.head)} style={{ width: `${34 + ((i * 17) % 30)}%` }} />
         <span className={cx(styles.skeleton, styles.sub)} style={{ width: `${22 + ((i * 11) % 24)}%` }} />
+        <span className={cx(styles.skeleton, styles.sub)} style={{ width: `${48 + ((i * 13) % 34)}%` }} />
       </div>
     ));
   }

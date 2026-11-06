@@ -9,6 +9,10 @@
   max-width: 100%; font-size: 15px; line-height: 1.35; color: var(--text-2); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; padding-left: 0;
 }
+.explain {
+  max-width: 100%; font-size: 14px; line-height: 1.35; color: var(--text-3); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
 .speak { color: var(--text-3); }
 .main:active .title { opacity: 0.7; }
 
