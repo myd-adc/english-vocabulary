@@ -13,6 +13,7 @@ export interface Word {
   notes: string | null;
   section: string | null;
   main_translation: string | null;
+  definition: string | null;
   created_at: string;
   interval: number;
   ease_factor: number;
@@ -37,6 +38,7 @@ export interface WordFields {
   notes: string | null;
   section: string | null;
   main_translation: string | null;
+  definition: string | null;
 }
 
 export type WordCreate = Pick<WordFields, "word" | "translation"> & Partial<WordFields>;

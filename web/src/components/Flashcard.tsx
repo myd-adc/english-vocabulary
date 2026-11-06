@@ -152,6 +152,11 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
               <div className={styles.definition} lang={reverse ? "en" : "uk"}>
                 {reverse ? <Mark topic={card.section}>{card.word}</Mark> : card.translation}
               </div>
+              {card.definition && (
+                <div className={styles.explain} lang="en">
+                  {card.definition}
+                </div>
+              )}
               {reverse && card.transcription && <div className={styles.ipa}>{card.transcription}</div>}
               {!reverse && card.part_of_speech && <div className={styles.pos}>{card.part_of_speech}</div>}
               <ExampleBlock card={card} />

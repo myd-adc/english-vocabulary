@@ -61,6 +61,11 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
             </Mark>
           </h3>
           <Parts word={word} />
+          {word.definition && (
+            <p className={styles.definition} lang="en">
+              {word.definition}
+            </p>
+          )}
           {input && input.trim().toLowerCase() !== word.word.toLowerCase() && (
             <p className={styles.note}>{`Ви ввели «${input.trim()}» → збережено «${word.word}»`}</p>
           )}

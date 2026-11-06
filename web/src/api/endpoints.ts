@@ -32,6 +32,9 @@ export const createWord = (body: WordCreate) => request<Word>("/vocabulary", { m
 export const updateWord = (id: number, body: WordUpdate) =>
   request<Word>(`/vocabulary/${id}`, { method: "PATCH", body });
 
+/** Generates the English definition with the LLM, saves it and returns the updated word. */
+export const defineWord = (id: number) => request<Word>(`/vocabulary/${id}/define`, { method: "POST" });
+
 export const deleteWord = (id: number) => request<void>(`/vocabulary/${id}`, { method: "DELETE" });
 
 export const reviewWord = (id: number, quality: number, direction: Direction) =>

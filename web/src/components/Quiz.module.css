@@ -35,6 +35,7 @@
 .ok { color: var(--ok); }
 .no { color: var(--danger); }
 .english { font-size: var(--fs-3); font-weight: 500; color: var(--text-2); white-space: pre-line; }
+.explain { font-size: 1rem; line-height: 1.45; font-weight: 400; color: var(--text-2); }
 .actions { display: flex; gap: 0.5rem; width: 100%; margin-top: 0.75rem; }
 .actions > button { flex: 1; }
 .quiz .stop { align-self: center; color: var(--text-2); }

@@ -31,6 +31,7 @@
 }
 .backWord { font-size: var(--fs-4); font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; margin-bottom: 0.5rem; }
 .back .definition[lang="en"] { font-weight: 800; font-size: var(--fs-6); line-height: 1.2; letter-spacing: -0.035em; }
+.explain { font-size: 1rem; line-height: 1.45; font-weight: 400; color: var(--text-2); margin-top: 0.5rem; overflow-wrap: anywhere; }
 .notes { font-size: 0.875rem; color: var(--text-2); margin-top: 0.75rem; }
 
 .speakRow { display: flex; justify-content: flex-start; }

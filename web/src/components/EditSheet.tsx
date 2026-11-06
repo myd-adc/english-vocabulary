@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
-import { createWord, deleteWord, quickAdd, updateWord } from "../api/endpoints";
+import { createWord, defineWord, deleteWord, quickAdd, updateWord } from "../api/endpoints";
 import { useInvalidateWords, useSections } from "../api/hooks";
 import type { Word, WordFields } from "../api/types";
 import { FALLBACK_TOPIC } from "../lib/words";
@@ -18,6 +18,7 @@ const FIELDS: { key: FieldKey; label: string; kind: "input" | "textarea"; placeh
   { key: "word", label: "Слово (англійською)", kind: "input" },
   { key: "translation", label: "Переклад", kind: "textarea" },
   { key: "main_translation", label: "Головне значення", kind: "input" },
+  { key: "definition", label: "Пояснення англійською", kind: "textarea" },
   { key: "transcription", label: "Транскрипція (IPA)", kind: "input", placeholder: "/ˈæp.əl/" },
   { key: "part_of_speech", label: "Частина мови", kind: "input", placeholder: "noun, verb…" },
   { key: "example", label: "Приклад (англійською)", kind: "textarea" },
@@ -59,6 +60,7 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session>({ id: 0, word: null, options: {} });
   const [values, setValues] = useState<Values>(EMPTY);
   const [error, setError] = useState<{ message: string; n: number } | null>(null);
+  const [defining, setDefining] = useState(false);
   const [saving, setSaving] = useState<string | null>(null); // label shown on the save button
   const refs = useRef<Partial<Record<FieldKey, HTMLInputElement | HTMLTextAreaElement | null>>>({});
   const errorRef = useRef<HTMLParagraphElement>(null);
@@ -110,7 +112,7 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
       if (r.status === "unavailable") return fail("Автопереклад зараз недоступний. Введіть переклад вручну.");
       if (r.status === "exists") return fail(`«${r.word?.word}» уже є у словнику.`);
       const extra: Partial<WordFields> = {};
-      for (const key of ["transcription", "part_of_speech", "example", "example_translation", "notes", "section"] as const) {
+      for (const key of ["definition", "transcription", "part_of_speech", "example", "example_translation", "notes", "section"] as const) {
         if (body[key]) extra[key] = body[key];
       }
       if (Object.keys(extra).length && r.word) {
@@ -146,6 +148,21 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
       fail(err instanceof ApiError && err.status === 409 ? "Таке слово вже є." : "Не вдалося зберегти.");
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function define() {
+    if (!editing || defining) return;
+    setDefining(true);
+    try {
+      const w = await defineWord(editing.id);
+      setValues((v) => ({ ...v, definition: w.definition || "" }));
+      setError(null);
+      await invalidate();
+    } catch (err) {
+      fail(err instanceof ApiError && err.status === 503 ? "Пояснення зараз недоступне." : "Не вдалося пояснити слово.");
+    } finally {
+      setDefining(false);
     }
   }
 
@@ -185,6 +202,7 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
                 <textarea
                   {...common}
                   rows={2}
+                  lang={key === "definition" ? "en" : undefined}
                   placeholder={key === "translation" && !editing ? "Залиште порожнім — перекладу автоматично" : undefined}
                 />
               ) : (
@@ -196,6 +214,11 @@ export function EditSheetProvider({ children }: { children: ReactNode }) {
                   placeholder={placeholder}
                   list={key === "section" ? "section-options" : undefined}
                 />
+              )}
+              {key === "definition" && editing && !values.definition.trim() && (
+                <Button variant="secondary" className={styles.define} onClick={define} disabled={defining} busy={defining}>
+                  {defining ? "Пояснюю…" : "Пояснити англійською"}
+                </Button>
               )}
               {key === "section" && <datalist id="section-options">{topicOptions}</datalist>}
             </Field>

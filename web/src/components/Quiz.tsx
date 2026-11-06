@@ -135,6 +135,11 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
             </span>
             {card.transcription && <p className={styles.ipa}>{card.transcription}</p>}
             <p className={styles.english}>{card.translation}</p>
+            {card.definition && (
+              <p className={styles.explain} lang="en">
+                {card.definition}
+              </p>
+            )}
             <ExampleBlock card={card} />
             <div className={styles.actions}>
               <Button variant="secondary" onClick={() => speakCard(card)}>
