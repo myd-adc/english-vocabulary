@@ -10,11 +10,13 @@ from app.models import (
     ConnectRequest,
     ConnectResponse,
     Direction,
+    ExplainLang,
     MeResponse,
     QuickAddRequest,
     QuickAddResponse,
     ReviewRequest,
     SectionResponse,
+    SettingsUpdate,
     StatsResponse,
     TopicRename,
     WordCreate,
@@ -33,7 +35,13 @@ protected = APIRouter(dependencies=[Depends(auth.require_auth)])
 
 @protected.get("/me", response_model=MeResponse)
 def me(user: User = Depends(auth.require_auth)):
-    return {"id": user.id, "email": user.email}
+    return {"id": user.id, "email": user.email, "explain_lang": vocab.get_explain_lang(user.id)}
+
+
+@protected.patch("/me", response_model=MeResponse)
+def update_me(payload: SettingsUpdate, user: User = Depends(auth.require_auth)):
+    lang = vocab.set_explain_lang(user.id, payload.explain_lang)
+    return {"id": user.id, "email": user.email, "explain_lang": lang}
 
 
 @protected.post("/connect", response_model=ConnectResponse)
@@ -151,15 +159,17 @@ def update_word(word_id: int, payload: WordUpdate, user: User = Depends(auth.req
 
 
 @protected.post("/vocabulary/{word_id}/define", response_model=WordResponse)
-def define_word(word_id: int, user: User = Depends(auth.require_auth)):
+def define_word(word_id: int, lang: ExplainLang = Query("en"), user: User = Depends(auth.require_auth)):
+    """Writes the word's explanation in `lang` (English or Ukrainian) with the LLM and saves it."""
     word = vocab.get_word(user.id, word_id)
     if word is None:
         raise HTTPException(status_code=404, detail="Word not found")
     try:
-        definition = translator.define(word["word"], word["translation"])
+        definition = translator.define(word["word"], word["translation"], lang)
     except translator.TranslationUnavailable as err:
         raise HTTPException(status_code=503, detail="Пояснення зараз недоступне, спробуйте пізніше") from err
-    return vocab.update_word(user.id, word_id, {"definition": definition}) or word
+    field = "definition_uk" if lang == "uk" else "definition"
+    return vocab.update_word(user.id, word_id, {field: definition}) or word
 
 
 @protected.delete("/vocabulary/{word_id}", status_code=204)

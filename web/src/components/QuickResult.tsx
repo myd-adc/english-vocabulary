@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Word } from "../api/types";
+import { explanation, useExplainLang } from "../lib/explain";
 import { markerFor } from "../lib/marker";
 import { FALLBACK_TOPIC } from "../lib/words";
 import { Button } from "./Button";
@@ -26,6 +27,7 @@ export function QuickResult({ result, busy, onManualSave, onEdit, onDelete }: Pr
 }
 
 function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result: QuickResultState }) {
+  const { lang: explainLang } = useExplainLang();
   switch (result.status) {
     case "pending":
       return (
@@ -53,6 +55,7 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
     default: {
       const { word, input, status } = result;
       const topic = word.section || FALLBACK_TOPIC;
+      const explain = explanation(word, explainLang);
       return (
         <>
           <h3 className={styles.word}>
@@ -61,9 +64,9 @@ function Body({ result, busy, onManualSave, onEdit, onDelete }: Props & { result
             </Mark>
           </h3>
           <Parts word={word} />
-          {word.definition && (
-            <p className={styles.definition} lang="en">
-              {word.definition}
+          {explain && (
+            <p className={styles.definition} lang={explain.lang}>
+              {explain.text}
             </p>
           )}
           {input && input.trim().toLowerCase() !== word.word.toLowerCase() && (

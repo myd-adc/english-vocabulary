@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import type { Direction, Word } from "../api/types";
 import { cx } from "../lib/cx";
+import { explanation, useExplainLang } from "../lib/explain";
 import { canSpeak, getAutoplay, speak, speakCard, stopSpeaking, useVoiceVersion } from "../lib/speech";
 import { shortMeaning } from "../lib/words";
 import { Button } from "./Button";
@@ -42,6 +43,7 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
   useVoiceVersion();
+  const explain = explanation(card, useExplainLang().lang);
 
   // A new card starts on its front; in EN -> UA the word is read out right away.
   useEffect(() => {
@@ -152,9 +154,9 @@ export function Flashcard({ card, direction, onRate, onEdit }: Props) {
               <div className={styles.definition} lang={reverse ? "en" : "uk"}>
                 {reverse ? <Mark topic={card.section}>{card.word}</Mark> : card.translation}
               </div>
-              {card.definition && (
-                <div className={styles.explain} lang="en">
-                  {card.definition}
+              {explain && (
+                <div className={styles.explain} lang={explain.lang}>
+                  {explain.text}
                 </div>
               )}
               {reverse && card.transcription && <div className={styles.ipa}>{card.transcription}</div>}

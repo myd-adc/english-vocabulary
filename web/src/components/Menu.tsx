@@ -3,18 +3,20 @@ import { backfillTopics } from "../api/endpoints";
 import { useInvalidateWords, useMe, useSections } from "../api/hooks";
 import { signOut } from "../lib/auth";
 import { pluralWords } from "../lib/plural";
+import { EXPLAIN_LABELS, useExplainLang } from "../lib/explain";
 import { THEME_LABELS, useTheme } from "../lib/theme";
 import { FALLBACK_TOPIC } from "../lib/words";
 import { IconButton } from "./Button";
 import styles from "./Menu.module.css";
 
-/** Header "⋯" menu: sort untopiced words, switch theme, sign out. */
+/** Header "⋯" menu: sort untopiced words, explanation language, theme, sign out. */
 export function Menu({ onNote }: { onNote: (note: string) => void }) {
   const [open, setOpen] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { theme, cycle } = useTheme();
+  const explain = useExplainLang();
   const email = useMe().data?.email;
   const sections = useSections().data ?? [];
   const invalidate = useInvalidateWords();
@@ -87,6 +89,9 @@ export function Menu({ onNote }: { onNote: (note: string) => void }) {
               {backfilling ? "Розкладаю…" : "Розкласти слова без теми"}
             </button>
           )}
+          <button type="button" className={styles.item} role="menuitem" onClick={explain.toggle}>
+            {EXPLAIN_LABELS[explain.lang]}
+          </button>
           <button type="button" className={styles.item} role="menuitem" onClick={cycle}>
             {THEME_LABELS[theme]}
           </button>

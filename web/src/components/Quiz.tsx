@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Word } from "../api/types";
 import { cx } from "../lib/cx";
+import { explanation, useExplainLang } from "../lib/explain";
 import { isEnglishOption, optionLabel, QuizSession } from "../lib/quiz";
 import type { Step } from "../lib/quiz";
 import { getAutoplay, speak, speakCard, stopSpeaking } from "../lib/speech";
@@ -28,6 +29,7 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
   const [step, setStep] = useState<Step | null>(first);
   const [picked, setPicked] = useState<number | null>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  const { lang: explainLang } = useExplainLang();
 
   const finish = () => onFinish({ asked: session.asked, correct: session.correct });
 
@@ -74,6 +76,7 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
   }
 
   const correct = picked === card.id;
+  const explain = explanation(card, explainLang);
 
   return (
     <div className={styles.quiz}>
@@ -135,9 +138,9 @@ export function Quiz({ cards, pool, onProgress, onFinish }: Props) {
             </span>
             {card.transcription && <p className={styles.ipa}>{card.transcription}</p>}
             <p className={styles.english}>{card.translation}</p>
-            {card.definition && (
-              <p className={styles.explain} lang="en">
-                {card.definition}
+            {explain && (
+              <p className={styles.explain} lang={explain.lang}>
+                {explain.text}
               </p>
             )}
             <ExampleBlock card={card} />

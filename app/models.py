@@ -18,6 +18,7 @@ class WordCreate(BaseModel):
     section: str | None = None
     main_translation: str | None = None
     definition: str | None = Field(None, description="Short English explanation of the meaning")
+    definition_uk: str | None = Field(None, description="Short Ukrainian explanation of the meaning")
 
 
 class WordUpdate(BaseModel):
@@ -33,6 +34,7 @@ class WordUpdate(BaseModel):
     section: str | None = None
     main_translation: str | None = None
     definition: str | None = None
+    definition_uk: str | None = None
 
 
 class WordResponse(BaseModel):
@@ -47,6 +49,7 @@ class WordResponse(BaseModel):
     section: str | None = None
     main_translation: str | None = None
     definition: str | None = None
+    definition_uk: str | None = None
     created_at: str
     # EN -> UA schedule
     interval: int
@@ -81,9 +84,17 @@ class ReviewRequest(BaseModel):
     quality: int = Field(ge=0, le=5, description="SM-2 quality: 0 Again, 3 Hard, 4 Good, 5 Easy")
 
 
+ExplainLang = Literal["uk", "en"]
+
+
 class MeResponse(BaseModel):
     id: str
     email: str
+    explain_lang: ExplainLang = "uk"
+
+
+class SettingsUpdate(BaseModel):
+    explain_lang: ExplainLang
 
 
 class ConnectRequest(BaseModel):

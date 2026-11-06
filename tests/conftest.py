@@ -56,7 +56,7 @@ def clean_db(client):
     from app.db import connection
 
     with connection() as conn:
-        conn.execute("TRUNCATE words RESTART IDENTITY")
+        conn.execute("TRUNCATE words, user_settings RESTART IDENTITY")
         conn.execute("TRUNCATE oauth_auth_codes, oauth_refresh_tokens, oauth_revoked_tokens")
     auth._claimed.clear()
 

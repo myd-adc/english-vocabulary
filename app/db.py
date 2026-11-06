@@ -114,6 +114,12 @@ def init_db() -> None:
         conn.execute(SCHEMA)
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS main_translation TEXT")
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS definition TEXT")
+        conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS definition_uk TEXT")
+        # Per-person preferences, e.g. which language word explanations are shown in.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS user_settings ("
+            "user_id UUID PRIMARY KEY, explain_lang TEXT NOT NULL DEFAULT 'uk')"
+        )
         # Accounts: every word belongs to a Supabase user (NULL = saved before accounts existed,
         # claimed by OWNER_EMAIL on their first request). Uniqueness is per person now.
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS user_id UUID")
@@ -126,6 +132,6 @@ def init_db() -> None:
         # The Supabase publishable key ships in the browser bundle. Row Level Security with no
         # policies blocks the anon/authenticated roles from reading these tables through the
         # Supabase Data API; the app itself connects as the table owner and is not affected.
-        for table in ("words", "oauth_clients", "oauth_auth_codes", "oauth_refresh_tokens",
+        for table in ("words", "user_settings", "oauth_clients", "oauth_auth_codes", "oauth_refresh_tokens",
                       "oauth_revoked_tokens"):
             conn.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")

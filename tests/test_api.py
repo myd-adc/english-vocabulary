@@ -270,9 +270,9 @@ def test_define_endpoint(client, headers, bob_headers, monkeypatch):
     from app import translator
 
     wid = client.post("/api/vocabulary", json=WORD, headers=headers).json()["id"]
-    monkeypatch.setattr(translator, "define", lambda w, t: f"def of {w}")
+    monkeypatch.setattr(translator, "define", lambda w, t, lang="en": f"{lang} def of {w}")
     r = client.post(f"/api/vocabulary/{wid}/define", headers=headers)
-    assert r.status_code == 200 and r.json()["definition"] == f"def of {WORD['word']}"
+    assert r.status_code == 200 and r.json()["definition"] == f"en def of {WORD['word']}"
     assert client.get("/api/vocabulary", headers=headers).json()["words"][0]["definition"]
     assert client.post(f"/api/vocabulary/{wid}/define", headers=bob_headers).status_code == 404
     assert client.post("/api/vocabulary/999/define", headers=headers).status_code == 404
@@ -282,7 +282,7 @@ def test_define_endpoint(client, headers, bob_headers, monkeypatch):
 def test_define_endpoint_unavailable(client, headers, monkeypatch):
     from app import translator
 
-    def down(w, t):
+    def down(w, t, lang="en"):
         raise translator.TranslationUnavailable("down")
 
     wid = client.post("/api/vocabulary", json=WORD, headers=headers).json()["id"]
@@ -297,3 +297,23 @@ def test_patch_edits_and_clears_definition(client, headers):
     assert r["definition"] == "edited"
     r = client.patch(f"/api/vocabulary/{wid}", json={"definition": None}, headers=headers).json()
     assert r["definition"] is None
+
+
+def test_define_in_ukrainian_fills_its_own_field(client, headers, monkeypatch):
+    from app import translator
+
+    wid = client.post("/api/vocabulary", json=WORD | {"definition": "a fruit"}, headers=headers).json()["id"]
+    monkeypatch.setattr(translator, "define", lambda w, t, lang="en": f"{lang}: пояснення")
+    r = client.post(f"/api/vocabulary/{wid}/define?lang=uk", headers=headers).json()
+    assert r["definition_uk"] == "uk: пояснення" and r["definition"] == "a fruit"
+    assert client.post(f"/api/vocabulary/{wid}/define?lang=de", headers=headers).status_code == 422
+
+
+def test_explain_language_setting(client, headers, bob_headers):
+    assert client.get("/api/me", headers=headers).json()["explain_lang"] == "uk"
+    r = client.patch("/api/me", json={"explain_lang": "en"}, headers=headers)
+    assert r.status_code == 200 and r.json()["explain_lang"] == "en"
+    assert client.get("/api/me", headers=headers).json()["explain_lang"] == "en"
+    assert client.get("/api/me", headers=bob_headers).json()["explain_lang"] == "uk"
+    assert client.patch("/api/me", json={"explain_lang": "fr"}, headers=headers).status_code == 422
+    assert client.patch("/api/me", json={"explain_lang": "en"}).status_code == 401

@@ -67,6 +67,9 @@ Russian words or russianisms (for example not 'неловкий', 'являти�
 definition: one short sentence in simple English that explains the meaning of the lemma the way a \
 learner's dictionary (Oxford Learner's, Cambridge) does, at most 20 words, without using the lemma \
 itself; for an idiom or phrasal verb explain the whole phrase. Empty string if not English.
+definition_uk: the same explanation in simple, natural Ukrainian (not a translation of the lemma, \
+an explanation of what it means), at most 20 words, without the lemma or its main translation. \
+Empty string if not English.
 is_english: false if the input is not English (for example Ukrainian); the other fields may then \
 be empty.
 {TOPIC_RULES}
@@ -80,13 +83,21 @@ which shows the intended sense. Reply with one short sentence in simple English,
 explaining its meaning without using the word itself; for an idiom or phrasal verb explain the \
 whole phrase."""
 
+DEFINE_SYSTEM_UK = """You explain English words to Ukrainian learners in a vocabulary-learning app. \
+You get an English word or phrase and its Ukrainian translation, which shows the intended sense. \
+Reply with one short sentence in simple, natural Ukrainian, at most 20 words, explaining what it \
+means (like a Ukrainian explanatory dictionary), without the English word and without just \
+repeating the translation; for an idiom or phrasal verb explain the whole phrase. Never use Russian \
+words or russianisms."""
+
 TOPIC_SYSTEM = f"""You assign a topic to an English word for a vocabulary-learning app. You get the \
 word, its Ukrainian translation and the existing topics.
 {TOPIC_RULES}"""
 
 
 def tidy_definition(text: str) -> str:
-    """Dictionary style: lowercase start (unless "I" or an acronym), no closing full stop."""
+    """Dictionary style: lowercase start (unless "I" or an acronym), no closing full stop.
+    Works for the English and the Ukrainian explanations alike."""
     d = text.strip().rstrip(".").strip()[:MAX_DEFINITION]
     first = d.split(" ", 1)[0]
     if d and first != "I" and not (len(first) > 1 and first.isupper()):
@@ -106,6 +117,7 @@ class Translation(BaseModel):
     main: str
     topic: str
     definition: str = ""
+    definition_uk: str = ""
 
 
 class TopicOnly(BaseModel):
@@ -244,6 +256,7 @@ def translate(text: str, existing_topics: list[str]) -> Translation:
     t.lemma = t.lemma.strip()[:MAX_LEMMA]
     t.topic = _match_topic(t.topic, existing_topics)
     t.definition = tidy_definition(t.definition)
+    t.definition_uk = tidy_definition(t.definition_uk)
     return t
 
 
@@ -260,9 +273,11 @@ def suggest_topic(word: str, translation: str, existing_topics: list[str]) -> st
     return _match_topic(out.topic, existing_topics)
 
 
-def define(word: str, translation: str) -> str:
-    """A short English definition of `word` (the sense given by its Ukrainian `translation`)."""
-    out = _parse(DEFINE_SYSTEM, f"Word: {word}\nTranslation: {translation}", DefinitionOnly)
+def define(word: str, translation: str, lang: str = "en") -> str:
+    """A short explanation of `word` (the sense given by its Ukrainian `translation`),
+    in English (lang="en") or Ukrainian (lang="uk")."""
+    system = DEFINE_SYSTEM_UK if lang == "uk" else DEFINE_SYSTEM
+    out = _parse(system, f"Word: {word}\nTranslation: {translation}", DefinitionOnly)
     definition = tidy_definition(out.definition)
     if not definition:
         raise TranslationUnavailable("empty definition")

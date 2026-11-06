@@ -1,6 +1,14 @@
 // Mirrors app/models.py.
 
 export type Direction = "forward" | "reverse";
+export type ExplainLang = "uk" | "en";
+
+export interface Me {
+  id: string;
+  email: string;
+  /** Language word explanations are shown in. */
+  explain_lang: ExplainLang;
+}
 
 export interface Word {
   id: number;
@@ -14,6 +22,7 @@ export interface Word {
   section: string | null;
   main_translation: string | null;
   definition: string | null;
+  definition_uk: string | null;
   created_at: string;
   interval: number;
   ease_factor: number;
@@ -39,6 +48,7 @@ export interface WordFields {
   section: string | null;
   main_translation: string | null;
   definition: string | null;
+  definition_uk: string | null;
 }
 
 export type WordCreate = Pick<WordFields, "word" | "translation"> & Partial<WordFields>;

@@ -40,6 +40,7 @@ CONTENT_FIELDS = (
     "section",
     "main_translation",
     "definition",
+    "definition_uk",
 )
 _REQUIRED = ("word", "translation")
 
@@ -334,6 +335,7 @@ def quick_add(user_id: str, text: str) -> dict:
                 "translation": translator.format_parts(tr.parts),
                 "main_translation": tr.main,
                 "definition": tr.definition.strip() or None,
+                "definition_uk": tr.definition_uk.strip() or None,
                 "section": tr.topic.strip() or FALLBACK_TOPIC,
             }
         )
@@ -464,3 +466,20 @@ def claim_unowned(user_id: str) -> int:
                                  WHERE o.user_id = %s::uuid AND lower(o.word) = lower(w.word))""",
             [user_id, user_id],
         ).rowcount
+
+
+def get_explain_lang(user_id: str) -> str:
+    """Language word explanations are shown in: "uk" (default) or "en"."""
+    with connection() as conn:
+        row = conn.execute("SELECT explain_lang FROM user_settings WHERE user_id = %s", [user_id]).fetchone()
+    return row["explain_lang"] if row else "uk"
+
+
+def set_explain_lang(user_id: str, lang: str) -> str:
+    with connection() as conn:
+        conn.execute(
+            "INSERT INTO user_settings (user_id, explain_lang) VALUES (%s, %s) "
+            "ON CONFLICT (user_id) DO UPDATE SET explain_lang = EXCLUDED.explain_lang",
+            [user_id, lang],
+        )
+    return lang

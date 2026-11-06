@@ -41,7 +41,7 @@ def test_unsigned_token_is_401(client):
 
 def test_me_returns_id_and_email(client):
     r = client.get("/api/me", headers=bearer(ALICE))
-    assert r.status_code == 200 and r.json() == ALICE
+    assert r.status_code == 200 and r.json() == ALICE | {"explain_lang": "uk"}
 
 
 def test_allowlist_is_case_insensitive(client):
@@ -87,7 +87,7 @@ def test_asymmetric_token_verified_through_jwks(client, monkeypatch):
     claims = {"sub": BOB["id"], "email": BOB["email"], "aud": "authenticated",
               "iss": "https://test.supabase.co/auth/v1", "exp": int(time.time()) + 60}
     good = jwt.encode(claims, key, algorithm="ES256", headers={"kid": "k1"})
-    assert client.get("/api/me", headers={"Authorization": f"Bearer {good}"}).json() == BOB
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {good}"}).json() == BOB | {"explain_lang": "uk"}
     other = ec.generate_private_key(ec.SECP256R1())
     bad = jwt.encode(claims, other, algorithm="ES256", headers={"kid": "k1"})
     assert client.get("/api/me", headers={"Authorization": f"Bearer {bad}"}).status_code == 401

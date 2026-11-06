@@ -2,6 +2,8 @@ import { qs, request } from "./client";
 import type {
   BackfillResult,
   Direction,
+  ExplainLang,
+  Me,
   QuickAddResult,
   Section,
   Word,
@@ -10,7 +12,9 @@ import type {
   WordUpdate,
 } from "./types";
 
-export const getMe = () => request<{ id: string; email: string }>("/me");
+export const getMe = () => request<Me>("/me");
+
+export const updateMe = (body: Pick<Me, "explain_lang">) => request<Me>("/me", { method: "PATCH", body });
 
 /** Finishes a Claude connector authorization for the signed-in person; returns where to send the browser. */
 export const connectClaude = (requestId: string) =>
@@ -32,8 +36,9 @@ export const createWord = (body: WordCreate) => request<Word>("/vocabulary", { m
 export const updateWord = (id: number, body: WordUpdate) =>
   request<Word>(`/vocabulary/${id}`, { method: "PATCH", body });
 
-/** Generates the English definition with the LLM, saves it and returns the updated word. */
-export const defineWord = (id: number) => request<Word>(`/vocabulary/${id}/define`, { method: "POST" });
+/** Writes the explanation in `lang` with the LLM, saves it and returns the updated word. */
+export const defineWord = (id: number, lang: ExplainLang) =>
+  request<Word>(`/vocabulary/${id}/define?lang=${lang}`, { method: "POST" });
 
 export const deleteWord = (id: number) => request<void>(`/vocabulary/${id}`, { method: "DELETE" });
 
