@@ -113,6 +113,7 @@ def init_db() -> None:
         conn.execute("SELECT pg_advisory_xact_lock(727274)")
         conn.execute(SCHEMA)
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS main_translation TEXT")
+        conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS definition TEXT")
         # Accounts: every word belongs to a Supabase user (NULL = saved before accounts existed,
         # claimed by OWNER_EMAIL on their first request). Uniqueness is per person now.
         conn.execute("ALTER TABLE words ADD COLUMN IF NOT EXISTS user_id UUID")

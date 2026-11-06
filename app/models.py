@@ -17,6 +17,7 @@ class WordCreate(BaseModel):
     notes: str | None = None
     section: str | None = None
     main_translation: str | None = None
+    definition: str | None = Field(None, description="Short English explanation of the meaning")
 
 
 class WordUpdate(BaseModel):
@@ -31,6 +32,7 @@ class WordUpdate(BaseModel):
     notes: str | None = None
     section: str | None = None
     main_translation: str | None = None
+    definition: str | None = None
 
 
 class WordResponse(BaseModel):
@@ -44,6 +46,7 @@ class WordResponse(BaseModel):
     notes: str | None = None
     section: str | None = None
     main_translation: str | None = None
+    definition: str | None = None
     created_at: str
     # EN -> UA schedule
     interval: int

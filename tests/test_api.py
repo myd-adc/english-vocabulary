@@ -253,3 +253,47 @@ def test_tables_have_row_level_security(client):
             [["words", "oauth_clients", "oauth_auth_codes", "oauth_refresh_tokens", "oauth_revoked_tokens"]],
         ).fetchall()
     assert len(rows) == 5 and all(r["relrowsecurity"] for r in rows)
+
+
+def test_quick_add_stores_definition(client, headers, monkeypatch):
+    from app import translator
+    from app.translator import PosMeanings, Translation
+
+    monkeypatch.setattr(translator, "translate", lambda text, topics: Translation(
+        is_english=True, lemma=text, parts=[PosMeanings(pos="дієслово", meanings=["бігти"])],
+        main="бігти", topic="Рух", definition="to move fast on foot"))
+    r = client.post("/api/vocabulary/quick", json={"text": "run"}, headers=headers).json()
+    assert r["word"]["definition"] == "to move fast on foot"
+
+
+def test_define_endpoint(client, headers, bob_headers, monkeypatch):
+    from app import translator
+
+    wid = client.post("/api/vocabulary", json=WORD, headers=headers).json()["id"]
+    monkeypatch.setattr(translator, "define", lambda w, t: f"def of {w}")
+    r = client.post(f"/api/vocabulary/{wid}/define", headers=headers)
+    assert r.status_code == 200 and r.json()["definition"] == f"def of {WORD['word']}"
+    assert client.get("/api/vocabulary", headers=headers).json()["words"][0]["definition"]
+    assert client.post(f"/api/vocabulary/{wid}/define", headers=bob_headers).status_code == 404
+    assert client.post("/api/vocabulary/999/define", headers=headers).status_code == 404
+    assert client.post(f"/api/vocabulary/{wid}/define").status_code == 401
+
+
+def test_define_endpoint_unavailable(client, headers, monkeypatch):
+    from app import translator
+
+    def down(w, t):
+        raise translator.TranslationUnavailable("down")
+
+    wid = client.post("/api/vocabulary", json=WORD, headers=headers).json()["id"]
+    monkeypatch.setattr(translator, "define", down)
+    r = client.post(f"/api/vocabulary/{wid}/define", headers=headers)
+    assert r.status_code == 503 and r.json()["detail"]
+
+
+def test_patch_edits_and_clears_definition(client, headers):
+    wid = client.post("/api/vocabulary", json=WORD | {"definition": "a fruit"}, headers=headers).json()["id"]
+    r = client.patch(f"/api/vocabulary/{wid}", json={"definition": "edited"}, headers=headers).json()
+    assert r["definition"] == "edited"
+    r = client.patch(f"/api/vocabulary/{wid}", json={"definition": None}, headers=headers).json()
+    assert r["definition"] is None

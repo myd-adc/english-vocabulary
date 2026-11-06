@@ -24,6 +24,7 @@ class WordInput(TypedDict, total=False):
     example: str  # English example sentence
     example_translation: str  # Ukrainian translation of the example
     notes: str
+    definition: str  # short English explanation of the meaning
     section: str  # per-word topic; overrides section_name
 
 
@@ -62,6 +63,8 @@ def _fmt(w: dict) -> str:
         x for x in (w.get("transcription"), w.get("part_of_speech")) if x
     )
     line = f"- [{w['id']}] {w['word']}" + (f" ({extra})" if extra else "") + f" — {w['translation']}"
+    if w.get("definition"):
+        line += f" | {w['definition']}"
     if w.get("section"):
         line += f" | topic: {w['section']}"
     line += (
@@ -79,7 +82,7 @@ def _fmt(w: dict) -> str:
         "'translation' is omitted, the word is translated automatically (lemma, Ukrainian "
         "translation grouped by part of speech) and given a topic. Optional: 'translation' "
         "(Ukrainian), 'transcription' (IPA), 'part_of_speech', 'example' (English sentence), "
-        "'example_translation' (Ukrainian), 'notes', 'section' (the word's topic). Pass "
+        "'example_translation' (Ukrainian), 'notes', 'definition' (one short English sentence explaining the meaning), 'section' (the word's topic). Pass "
         "section_name to put every word of the batch in one topic (e.g. 'Travel'); without it, "
         "words that come with a translation get a topic chosen automatically. Duplicates are "
         "skipped case-insensitively and reported."
@@ -202,7 +205,7 @@ async def list_words(
     description=(
         "Edit a saved word. Identify it by id (from list_words) or by its English spelling in "
         "'word'. Provide only the fields to change: new_word, translation, transcription, "
-        "part_of_speech, example, example_translation, notes, section (the topic). An empty string clears an "
+        "part_of_speech, example, example_translation, notes, definition (English explanation), section (the topic). An empty string clears an "
         "optional field. Review progress is kept."
     ),
 )
@@ -217,6 +220,7 @@ async def update_word(
     example_translation: str | None = None,
     notes: str | None = None,
     section: str | None = None,
+    definition: str | None = None,
 ) -> str:
     uid = _current_user()
 
@@ -233,6 +237,7 @@ async def update_word(
                 "word": new_word, "translation": translation, "transcription": transcription,
                 "part_of_speech": part_of_speech, "example": example,
                 "example_translation": example_translation, "notes": notes, "section": section,
+                "definition": definition,
             }.items()
             if v is not None
         }

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 
-from app import auth, mcp_tools, vocab
+from app import auth, mcp_tools, translator, vocab
 from app.auth import User
 from app.models import (
     BulkCreate,
@@ -148,6 +148,18 @@ def update_word(word_id: int, payload: WordUpdate, user: User = Depends(auth.req
     if result is None:
         raise HTTPException(status_code=404, detail="Word not found")
     return result
+
+
+@protected.post("/vocabulary/{word_id}/define", response_model=WordResponse)
+def define_word(word_id: int, user: User = Depends(auth.require_auth)):
+    word = vocab.get_word(user.id, word_id)
+    if word is None:
+        raise HTTPException(status_code=404, detail="Word not found")
+    try:
+        definition = translator.define(word["word"], word["translation"])
+    except translator.TranslationUnavailable as err:
+        raise HTTPException(status_code=503, detail="Пояснення зараз недоступне, спробуйте пізніше") from err
+    return vocab.update_word(user.id, word_id, {"definition": definition}) or word
 
 
 @protected.delete("/vocabulary/{word_id}", status_code=204)

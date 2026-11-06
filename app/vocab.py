@@ -39,6 +39,7 @@ CONTENT_FIELDS = (
     "notes",
     "section",
     "main_translation",
+    "definition",
 )
 _REQUIRED = ("word", "translation")
 
@@ -332,6 +333,7 @@ def quick_add(user_id: str, text: str) -> dict:
                 "word": lemma,
                 "translation": translator.format_parts(tr.parts),
                 "main_translation": tr.main,
+                "definition": tr.definition.strip() or None,
                 "section": tr.topic.strip() or FALLBACK_TOPIC,
             }
         )

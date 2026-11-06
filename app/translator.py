@@ -44,10 +44,21 @@ but keep phrasal verbs and fixed expressions as typed; lowercase except proper n
 main: the 1-2 most common Ukrainian words for the lemma (not for the typed form).
 Meanings must be real, natural, standard Ukrainian words; never invent words and never use
 Russian words or russianisms (for example not 'неловкий', 'являтися', 'приймати участь').
+definition: one short sentence in simple English that explains the meaning of the lemma the way a \
+learner's dictionary (Oxford Learner's, Cambridge) does, at most 20 words, without using the lemma \
+itself; for an idiom or phrasal verb explain the whole phrase. Empty string if not English.
 is_english: false if the input is not English (for example Ukrainian); the other fields may then \
 be empty.
 {TOPIC_RULES}
 The existing topics are given in the user message."""
+
+MAX_DEFINITION = 300
+
+DEFINE_SYSTEM = """You write learner's-dictionary definitions (Oxford Learner's / Cambridge style) \
+for a vocabulary-learning app. You get an English word or phrase and its Ukrainian translation, \
+which shows the intended sense. Reply with one short sentence in simple English, at most 20 words, \
+explaining its meaning without using the word itself; for an idiom or phrasal verb explain the \
+whole phrase."""
 
 TOPIC_SYSTEM = f"""You assign a topic to an English word for a vocabulary-learning app. You get the \
 word, its Ukrainian translation and the existing topics.
@@ -65,10 +76,15 @@ class Translation(BaseModel):
     parts: list[PosMeanings]
     main: str
     topic: str
+    definition: str = ""
 
 
 class TopicOnly(BaseModel):
     topic: str
+
+
+class DefinitionOnly(BaseModel):
+    definition: str
 
 
 class TranslationUnavailable(Exception):
@@ -198,6 +214,7 @@ def translate(text: str, existing_topics: list[str]) -> Translation:
     ]
     t.lemma = t.lemma.strip()[:MAX_LEMMA]
     t.topic = _match_topic(t.topic, existing_topics)
+    t.definition = t.definition.strip()[:MAX_DEFINITION]
     return t
 
 
@@ -212,3 +229,12 @@ def suggest_topic(word: str, translation: str, existing_topics: list[str]) -> st
     )
     out = _parse(TOPIC_SYSTEM, user, TopicOnly)
     return _match_topic(out.topic, existing_topics)
+
+
+def define(word: str, translation: str) -> str:
+    """A short English definition of `word` (the sense given by its Ukrainian `translation`)."""
+    out = _parse(DEFINE_SYSTEM, f"Word: {word}\nTranslation: {translation}", DefinitionOnly)
+    definition = out.definition.strip()[:MAX_DEFINITION]
+    if not definition:
+        raise TranslationUnavailable("empty definition")
+    return definition

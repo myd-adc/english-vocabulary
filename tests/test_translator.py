@@ -226,3 +226,20 @@ def test_bad_output_from_main_tries_backup(monkeypatch):
     _chain(monkeypatch, {"main-model": FakeClient(REFUSAL), "backup": backup},
            [{"model": "backup", "api_key": "", "base_url": "", "reasoning_effort": ""}])
     assert translate("run", []).lemma == "run"
+
+
+def test_translate_returns_definition(monkeypatch):
+    _use(monkeypatch, FakeClient(_ok(_tr(definition="  to move fast on foot  "))))
+    assert translate("run", []).definition == "to move fast on foot"
+
+
+def test_define(monkeypatch):
+    c = _use(monkeypatch, FakeClient(_ok(translator.DefinitionOnly(definition="to move fast"))))
+    assert translator.define("run", "бігти") == "to move fast"
+    assert "бігти" in c.calls[0]["messages"][1]["content"]
+
+
+def test_define_empty_is_unavailable(monkeypatch):
+    _use(monkeypatch, FakeClient(_ok(translator.DefinitionOnly(definition=" "))))
+    with pytest.raises(TranslationUnavailable):
+        translator.define("run", "бігти")
