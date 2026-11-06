@@ -85,6 +85,15 @@ word, its Ukrainian translation and the existing topics.
 {TOPIC_RULES}"""
 
 
+def tidy_definition(text: str) -> str:
+    """Dictionary style: lowercase start (unless "I" or an acronym), no closing full stop."""
+    d = text.strip().rstrip(".").strip()[:MAX_DEFINITION]
+    first = d.split(" ", 1)[0]
+    if d and first != "I" and not (len(first) > 1 and first.isupper()):
+        d = d[0].lower() + d[1:]
+    return d
+
+
 class PosMeanings(BaseModel):
     pos: str
     meanings: list[str]
@@ -234,7 +243,7 @@ def translate(text: str, existing_topics: list[str]) -> Translation:
     ]
     t.lemma = t.lemma.strip()[:MAX_LEMMA]
     t.topic = _match_topic(t.topic, existing_topics)
-    t.definition = t.definition.strip()[:MAX_DEFINITION]
+    t.definition = tidy_definition(t.definition)
     return t
 
 
@@ -254,7 +263,7 @@ def suggest_topic(word: str, translation: str, existing_topics: list[str]) -> st
 def define(word: str, translation: str) -> str:
     """A short English definition of `word` (the sense given by its Ukrainian `translation`)."""
     out = _parse(DEFINE_SYSTEM, f"Word: {word}\nTranslation: {translation}", DefinitionOnly)
-    definition = out.definition.strip()[:MAX_DEFINITION]
+    definition = tidy_definition(out.definition)
     if not definition:
         raise TranslationUnavailable("empty definition")
     return definition

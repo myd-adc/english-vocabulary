@@ -252,3 +252,11 @@ def test_part_of_speech_names_are_normalized():
     assert normalize_pos(" Фразовий  дієслово ") == "фразове дієслово"
     assert normalize_pos("Phrasal verb") == "фразове дієслово"
     assert normalize_pos("дієслово") == "дієслово"
+
+
+def test_definitions_are_tidied_to_dictionary_style():
+    from app.translator import tidy_definition
+
+    assert tidy_definition(" To keep something going. ") == "to keep something going"
+    assert tidy_definition("a strap for a dog") == "a strap for a dog"
+    assert tidy_definition("TV show that is popular.") == "TV show that is popular"
