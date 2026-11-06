@@ -243,3 +243,12 @@ def test_define_empty_is_unavailable(monkeypatch):
     _use(monkeypatch, FakeClient(_ok(translator.DefinitionOnly(definition=" "))))
     with pytest.raises(TranslationUnavailable):
         translator.define("run", "бігти")
+
+
+def test_part_of_speech_names_are_normalized():
+    from app.translator import normalize_pos
+
+    assert normalize_pos("фразовий дієслово") == "фразове дієслово"
+    assert normalize_pos(" Фразовий  дієслово ") == "фразове дієслово"
+    assert normalize_pos("Phrasal verb") == "фразове дієслово"
+    assert normalize_pos("дієслово") == "дієслово"

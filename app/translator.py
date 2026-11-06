@@ -22,6 +22,26 @@ MAX_MEANINGS = 5
 MAX_TOPIC = 40
 MAX_LEMMA = 100
 
+# Ukrainian part-of-speech names the model must use; "дієслово" is neuter, so "фразове дієслово".
+POS_NAMES = (
+    "іменник", "дієслово", "фразове дієслово", "прикметник", "прислівник", "займенник",
+    "прийменник", "сполучник", "вигук", "числівник", "частка", "ідіома", "вираз",
+)
+# Wrong forms models produce, mapped to the right ones.
+POS_FIXES = {
+    "фразовий дієслово": "фразове дієслово",
+    "фразове дієслово": "фразове дієслово",
+    "фразовий": "фразове дієслово",
+    "phrasal verb": "фразове дієслово",
+    "ідіом": "ідіома",
+    "вислів": "вираз",
+}
+
+
+def normalize_pos(pos: str) -> str:
+    p = " ".join(pos.strip().lower().split())
+    return POS_FIXES.get(p, p)
+
 TOPIC_RULES = (
     "topic: the subject area where a learner would look for this word, as a Ukrainian noun phrase "
     "of 1-3 words, capitalised, for example 'Їжа', 'Робота', 'Подорожі', 'Тіло і здоров\'я', "
@@ -36,8 +56,8 @@ TOPIC_RULES = (
 
 SYSTEM = f"""You are an English to Ukrainian dictionary for a vocabulary-learning app.
 Translate the user's English word or phrase like a good bilingual dictionary: give only common \
-meanings, grouped by part of speech (part-of-speech names in Ukrainian, e.g. "дієслово", \
-"іменник"), most common first, at most {MAX_PARTS} parts of speech and at most {MAX_MEANINGS} \
+meanings, grouped by part of speech, most common first, with part-of-speech names exactly from \
+this list: {", ".join(f'"{p}"' for p in POS_NAMES)}, at most {MAX_PARTS} parts of speech and at most {MAX_MEANINGS} \
 meanings each.
 lemma: fix typos and give the dictionary base form (ran -> run, children -> child, runing -> run), \
 but keep phrasal verbs and fixed expressions as typed; lowercase except proper nouns.
@@ -210,7 +230,7 @@ def translate(text: str, existing_topics: list[str]) -> Translation:
     user = f"Existing topics: {_topics_line(existing_topics)}\n\nWord or phrase: {text}"
     t = _parse(SYSTEM, user, Translation)
     t.parts = [
-        PosMeanings(pos=p.pos, meanings=p.meanings[:MAX_MEANINGS]) for p in t.parts[:MAX_PARTS]
+        PosMeanings(pos=normalize_pos(p.pos), meanings=p.meanings[:MAX_MEANINGS]) for p in t.parts[:MAX_PARTS]
     ]
     t.lemma = t.lemma.strip()[:MAX_LEMMA]
     t.topic = _match_topic(t.topic, existing_topics)
